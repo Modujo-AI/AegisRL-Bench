@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegisrl-bench"
+version = "0.1.0"
+description = "Evaluating agentic RL under environment failures"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+aegisrl-bench = "aegisrl_bench.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["aegisrl_bench*"]
+
+[tool.setuptools.package-data]
+aegisrl_bench = ["docker/*", "protocol.json", ".dockerignore"]

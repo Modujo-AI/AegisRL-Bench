@@ -1,0 +1,43 @@
+{
+  "task": "Microsoft Agent2 / AutoRL-Bench GSM8K",
+  "upstream": "https://github.com/microsoft/RD-Agent",
+  "commit": "484776c211e4fbbeef03e0ec00d6bbee7362a4f4",
+  "agent": {
+    "client": "Codex CLI 0.167.0",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "medium"
+  },
+  "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "time_budget_seconds_per_condition": 3600,
+  "budget_basis": "Pinned run.py CLI default; instructions.md's prose default is 43200 seconds. run_meta.json governs each run.",
+  "train_examples_available": 7473,
+  "test_examples": 1319,
+  "evaluation": "Unmodified upstream OpenCompassEvaluator, gsm8k_gen_1d7fe4, complete [:] range; model inference defaults from upstream models.yaml",
+  "conditions": [
+    "healthy",
+    "enospc"
+  ],
+  "workspace_bytes": 25769803776,
+  "fault": {
+    "type": "real ENOSPC from co-tenant writes on shared bounded tmpfs",
+    "trigger": "3 GPU utilization samples >20%, sampled every 3 seconds",
+    "full_seconds": 35,
+    "release_seconds": 55,
+    "repeat": true
+  },
+  "storage": "All task outputs, code, checkpoints and task caches remain on project filesystem. Base model and training input are read-only mounts. Runtime home/tmp are not permitted for task artifacts.",
+  "isolation": "Agent unprivileged uid1000, no Docker socket or capabilities, read-only root. Peer uid2000-owned files. Controller and evaluator code/test data are outside agent mounts.",
+  "infrastructure_adaptations": [
+    "Docker wrapper replaces upstream internal-auth start.sh with installed Codex ChatGPT authentication",
+    "Grader scores and timing live on protected storage",
+    "Submitted models are privately snapshotted before the original evaluator runs",
+    "Agent cannot call set_baseline"
+  ],
+  "interpretation": "One independent agent run per condition; exploratory paired setup, not statistical causal evidence. No checkpoint corruption in this pair.",
+  "dependencies_lock": "aegisrl_bench/docker/requirements.lock",
+  "requested_training_seed": 20261108,
+  "evaluation_generation_note": "The upstream dataset config gsm8k_gen_1d7fe4 has a 4-example prompt and GenInferencer max_out_len=512; the upstream model template retains its defaults. Both are unmodified.",
+  "workspace_capacity_reason": "Enough space for several full 1.5B model submissions and optimizer states; identical capacity in both conditions.",
+  "deadline_scoring": "Primary best score includes only successful evaluations completed within the declared 3600-second budget. Any later evaluation is retained as diagnostic evidence only; no agent actions are allowed after timeout.",
+  "name": "AegisRL-Bench"
+}
