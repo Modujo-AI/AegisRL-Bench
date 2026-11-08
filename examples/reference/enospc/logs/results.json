@@ -1,0 +1,116 @@
+[
+  {
+    "baseline_score": 63.91,
+    "best": {
+      "baseline_score": 63.91,
+      "elapsed_seconds": 274.57,
+      "improvement": -4.17,
+      "model_path": "./output/v2",
+      "score": 59.74,
+      "submission_id": 1,
+      "timestamp": "2026-11-08T21:56:49.495575"
+    },
+    "elapsed_seconds": 274.57,
+    "improvement": -4.17,
+    "model_path": "./output/v2",
+    "score": 59.74,
+    "submission_id": 1,
+    "timestamp": "2026-11-08T21:56:49.495575",
+    "total_submissions": 1
+  },
+  {
+    "baseline_score": 63.91,
+    "best": {
+      "baseline_score": 63.91,
+      "elapsed_seconds": 218.3,
+      "improvement": 1.67,
+      "model_path": "./output/v3",
+      "score": 65.58,
+      "submission_id": 2,
+      "timestamp": "2026-11-08T22:03:10.065372"
+    },
+    "elapsed_seconds": 218.3,
+    "improvement": 1.67,
+    "model_path": "./output/v3",
+    "score": 65.58,
+    "submission_id": 2,
+    "timestamp": "2026-11-08T22:03:10.065372",
+    "total_submissions": 2
+  },
+  {
+    "baseline_score": 63.91,
+    "best": {
+      "baseline_score": 63.91,
+      "elapsed_seconds": 230.84,
+      "improvement": 8.27,
+      "model_path": "./output/v4",
+      "score": 72.18,
+      "submission_id": 3,
+      "timestamp": "2026-11-08T22:15:34.165838"
+    },
+    "elapsed_seconds": 230.84,
+    "improvement": 8.27,
+    "model_path": "./output/v4",
+    "score": 72.18,
+    "submission_id": 3,
+    "timestamp": "2026-11-08T22:15:34.165838",
+    "total_submissions": 3
+  },
+  {
+    "baseline_score": 63.91,
+    "best": {
+      "baseline_score": 63.91,
+      "elapsed_seconds": 230.84,
+      "improvement": 8.27,
+      "model_path": "./output/v4",
+      "score": 72.18,
+      "submission_id": 3,
+      "timestamp": "2026-11-08T22:15:34.165838"
+    },
+    "elapsed_seconds": 232.24,
+    "improvement": 6.9,
+    "model_path": "./output/v5",
+    "score": 70.81,
+    "submission_id": 4,
+    "timestamp": "2026-11-08T22:30:04.719892",
+    "total_submissions": 4
+  },
+  {
+    "baseline_score": 63.91,
+    "best": {
+      "baseline_score": 63.91,
+      "elapsed_seconds": 230.84,
+      "improvement": 8.27,
+      "model_path": "./output/v4",
+      "score": 72.18,
+      "submission_id": 3,
+      "timestamp": "2026-11-08T22:15:34.165838"
+    },
+    "elapsed_seconds": 220.69,
+    "improvement": 8.04,
+    "model_path": "./output/v6blend",
+    "score": 71.95,
+    "submission_id": 5,
+    "timestamp": "2026-11-08T22:35:18.885791",
+    "total_submissions": 5
+  },
+  {
+    "baseline_score": 63.91,
+    "best": {
+      "baseline_score": 63.91,
+      "elapsed_seconds": 230.73,
+      "improvement": 9.48,
+      "model_path": "./output/v7extend",
+      "score": 73.39,
+      "submission_id": 6,
+      "timestamp": "2026-11-08T22:39:20.313003"
+    },
+    "elapsed_seconds": 230.73,
+    "improvement": 9.48,
+    "model_path": "./output/v7extend",
+    "score": 73.39,
+    "submission_id": 6,
+    "timestamp": "2026-11-08T22:39:20.313003",
+    "total_submissions": 6
+  }
+]

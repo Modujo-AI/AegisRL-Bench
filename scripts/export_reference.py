@@ -62,6 +62,7 @@ def export(source, out):
         for name in [
             "agent.jsonl",
             "agent_trace.txt",
+            "prompt.txt",
             "fault-events.jsonl",
             "fault-trigger.json",
             "gpu.jsonl",
@@ -74,6 +75,10 @@ def export(source, out):
         for name in ["summary.md", "best_model.json"]:
             if (run / "artifacts" / name).exists():
                 checked_copy(run / "artifacts" / name, dest / name)
+        if (run / "artifacts/output/best_model.json").exists():
+            checked_copy(
+                run / "artifacts/output/best_model.json", dest / "best_model.json"
+            )
         for p in (run / "artifacts/code").rglob("*"):
             if p.is_file() and p.suffix in [".py", ".sh"]:
                 checked_copy(p, dest / "code" / p.relative_to(run / "artifacts/code"))

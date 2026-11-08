@@ -1,0 +1,1914 @@
+AGENT
+I’ll read the workspace instructions and budget first, then build and run a training loop with auditable metrics and submit the best checkpoint in time for full evaluation.
+
+COMMAND
+/bin/bash -lc ls
+EXIT 0
+AGENTS.md
+cache
+code
+data
+description.md
+instructions.md
+models
+other-job
+output
+run_meta.json
+
+
+COMMAND
+/bin/bash -lc 'cat instructions.md description.md AGENTS.md run_meta.json'
+EXIT 0
+# AutoRL-Bench Task Instructions
+
+You are an RL training agent. Your goal is to improve the model through RL post-training.
+
+**Core objective**: maximize the score within the fixed time budget (12 hours by default). You may submit multiple times and iterate based on feedback.
+
+## Key Information (Read First)
+- **Workspace restriction**: the current directory is the workspace. Use only relative paths and do not `cd` outside it.
+- **Single source of truth for time**: read `./run_meta.json` first.
+- **Evaluation endpoint**: `POST $GRADING_SERVER_URL/submit`
+
+## Environment Variables
+- TASK: task name
+- BASE_MODEL: base model name
+- MODEL_PATH: base model path (read-only)
+- DATA_PATH: training data path (read-only)
+- OUTPUT_DIR: model output directory (submit a model path under this directory)
+- GRADING_SERVER_URL: grading service URL
+
+## Time and Budget Signals (Single Source of Truth)
+The default budget is **12 hours (43200 seconds)**. Always trust `run_meta.json`.
+
+Fields in `run_meta.json`:
+- start_time: task start time (Unix timestamp in seconds)
+- timeout_s: total time limit (seconds)
+- last_submit_time: last submission time (Unix timestamp in seconds)
+- end_time: task end time (Unix timestamp in seconds)
+
+Optional API:
+- GET `$GRADING_SERVER_URL/time`
+  - Returns: `start_time / timeout_s / last_submit_time / end_time / now / remaining`
+
+## Workspace and Directory Layout
+**Your current directory is the workspace. All required files are located under the current directory.**
+- **Do not `cd` outside the current directory**. Do not access parent directories or unrelated paths.
+- **Use only relative paths** such as `./code/train.py`, not absolute paths.
+- If you see a symlink pointing outside, ignore that fact and access it through the relative path here.
+
+Directory structure:
+```text
+./
+├── code/               # Your code area (put all self-written code here)
+├── data/               # Training data (read-only)
+├── models/             # Base model (read-only)
+├── output/             # Model outputs (save trained models here)
+├── description.md      # Task description (required reading)
+├── instructions.md     # This file
+├── run_meta.json       # Time and budget signals (single source of truth)
+└── ...                 # Benchmark-specific files (use ls to see the full list)
+```
+
+**Run `ls` first to inspect all available files in the current directory.** Different benchmark types may provide different extra files:
+- **Interactive environments** (such as ALFWorld): may provide `eval.py` (environment interaction plus evaluation logic), prompt templates, config files, and similar artifacts. These are critical references for writing training code.
+- **Static datasets** (such as GSM8K): usually expose training samples mainly through files under `data/`.
+
+**Notes**:
+- `code/`: write your code here. You may organize filenames and structure freely.
+- `output/`: store trained model artifacts here. You may keep multiple versions such as `output/v1/` and `output/v2/`, and specify the exact path at submission time.
+
+## Task Loop (Improve Score Within the Budget)
+1. Explore the workspace. Read `description.md`, `instructions.md`, and other relevant files. If `eval.py` is present, read it carefully.
+2. Write code under `code/` and train a model. SFT, GRPO, PPO, and other methods are all allowed.
+3. Save the resulting model to `$OUTPUT_DIR` such as `output/v1`.
+4. Submit it for evaluation through `POST $GRADING_SERVER_URL/submit`.
+5. Adjust your strategy based on the returned score and **keep iterating toward a better model within the remaining time**.
+
+## API
+```bash
+# Submit a model for evaluation (returns score, improvement, and best)
+curl -X POST "$GRADING_SERVER_URL/submit" \
+    -H "Content-Type: application/json" \
+    -d '{"model_path": "'$OUTPUT_DIR'/v1"}'
+
+# Evaluate on a specific GPU (optional; GPU 0 is used by default)
+curl -X POST "$GRADING_SERVER_URL/submit" \
+    -H "Content-Type: application/json" \
+    -d '{"model_path": "'$OUTPUT_DIR'/v1", "gpu": "0"}'
+
+# Multi-GPU evaluation
+curl -X POST "$GRADING_SERVER_URL/submit" \
+    -H "Content-Type: application/json" \
+    -d '{"model_path": "'$OUTPUT_DIR'/v1", "gpu": "2,3"}'
+
+# Query time and budget (prefer run_meta.json; this API is supplementary)
+curl "$GRADING_SERVER_URL/time"
+
+# Health check (returns available GPU list and related status)
+curl "$GRADING_SERVER_URL/health"
+```
+
+### `/submit` Parameters
+| Parameter | Type | Required | Description |
+|------|------|------|------|
+| model_path | string | Yes | Model path |
+| gpu | string | No | Requested GPU(s), such as `"0"`, `"1"`, or `"0,1"`. Must be chosen from the available GPU list. If omitted, the first available GPU is used by default. You can inspect the available list through `/health`. |
+
+### `/submit` Response Example
+```json
+{
+  "submission_id": 3,
+  "score": 65.0,
+  "baseline_score": 45.0,
+  "improvement": 20.0,
+  "best": {"submission_id": 2, "score": 68.0},
+  "total_submissions": 3
+}
+```
+
+## Important Notes
+- **Do not directly submit a copied or symlinked base model**. An untrained base model only receives the baseline score (`improvement = 0`), which wastes a submission. You must train before submitting.
+- You may submit multiple model versions. The system automatically tracks the best score.
+- Use the remaining time carefully and iterate based on score feedback.
+- **You must submit a full model**. The evaluation system does not support a LoRA adapter directory alone. If you train with LoRA/PEFT, merge before saving: `model = model.merge_and_unload(); model.save_pretrained(output_path); tokenizer.save_pretrained(output_path)`.
+- After saving a model with `trl`, the `extra_special_tokens` field in `tokenizer_config.json` may be stored as a list, while vLLM/transformers expects a dict during loading. Remove that field after saving, or evaluation may fail.
+# GSM8K 任务
+
+## 目标
+训练模型在 GSM8K 数学问题上获得更高准确率。
+
+## 数据格式
+```json
+{"question": "...", "answer": "... #### 42"}
+```
+
+## 评测指标
+- 答案准确率（exact match）
+
+## 提示
+- 答案格式: `#### 数字`
+- 使用 GRPO/PPO 等 RL 方法训练
+# AutoRL-Bench Agent Guidelines
+
+## Summary Maintenance (MANDATORY)
+
+You MUST maintain a file called `summary.md` in the workspace root. Update it **after every training attempt and every submission**, not just at the end.
+
+### Format
+
+```markdown
+# 运行总结
+
+## Attempt N (YYYY-MM-DD HH:MM)
+- **状态**: ✅ 成功 / ❌ 失败
+- **Score**: X.XX | Improvement: +Y.YY | Best: Z.ZZ
+- **训练类型**: SFT / GRPO / PPO / DPO / ...
+- **超参数**: lr=X, epochs=Y, batch_size=Z, ...
+- **做了什么**: 简述本次尝试的策略和具体操作
+- **为什么**: 为什么选择这个方法/这些超参数
+- **问题/进步**: 遇到了什么问题，相比上次有什么改进
+- **关键代码**: 关键改动的代码片段（如有）
+- **下一步建议**: 基于本次结果，下一步打算怎么做
+```
+
+### Rules
+1. **Append only** — never overwrite previous attempts
+2. Analyze `code/train.py` source to extract training type and hyperparameters
+3. If training fails, extract root cause from error output
+4. "做了什么" and "为什么" are the most important fields — be thorough
+5. Update summary.md IMMEDIATELY after each submission result comes back
+6. Include the grading server response (score, improvement, best) verbatim
+{"start_time": 1794170087, "timeout_s": 3600, "last_submit_time": null, "end_time": null}
+
+COMMAND
+/bin/bash -lc 'ls -R code data models | head -100
+printenv MODEL_PATH DATA_PATH OUTPUT_DIR GRADING_SERVER_URL
+nvidia-smi
+date -u +%s'
+EXIT 0
+code:
+
+data:
+train.jsonl
+
+models:
+base
+
+models/base:
+LICENSE
+README.md
+config.json
+generation_config.json
+merges.txt
+model.safetensors
+tokenizer.json
+tokenizer_config.json
+vocab.json
+./models/base
+./data
+./output
+http://afb-181aaf41cf-grader:5000
+Sun Nov  8 20:34:57 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 595.99.02              Driver Version: 595.99.02      CUDA Version: 13.2     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 4090        Off |   00000000:01:00.0 Off |                  Off |
+| 30%   34C    P8             25W /  300W |     172MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+1794170097
+
+
+COMMAND
+/bin/bash -lc 'mkdir -p cache/tmp cache/hf cache/torch cache/triton logs
+TMPDIR=./cache/tmp python -c "import torch,transformers,peft; print(torch.__version__,transformers.__version__,peft.__version__)"'
+EXIT 0
+2.9.0+cu128 4.57.6 0.18.1
+
+
+COMMAND
+/bin/bash -lc 'cat models/base/config.json
+head -c 3500 models/base/tokenizer_config.json
+head -n 2 data/train.jsonl
+wc -l data/train.jsonl
+cat models/base/README.md | head -60'
+EXIT 0
+{
+  "architectures": [
+    "Qwen2ForCausalLM"
+  ],
+  "attention_dropout": 0.0,
+  "bos_token_id": 151643,
+  "eos_token_id": 151645,
+  "hidden_act": "silu",
+  "hidden_size": 1536,
+  "initializer_range": 0.02,
+  "intermediate_size": 8960,
+  "max_position_embeddings": 32768,
+  "max_window_layers": 21,
+  "model_type": "qwen2",
+  "num_attention_heads": 12,
+  "num_hidden_layers": 28,
+  "num_key_value_heads": 2,
+  "rms_norm_eps": 1e-06,
+  "rope_theta": 1000000.0,
+  "sliding_window": 32768,
+  "tie_word_embeddings": true,
+  "torch_dtype": "bfloat16",
+  "transformers_version": "4.43.1",
+  "use_cache": true,
+  "use_sliding_window": false,
+  "vocab_size": 151936
+}
+{
+  "add_bos_token": false,
+  "add_prefix_space": false,
+  "added_tokens_decoder": {
+    "151643": {
+      "content": "<|endoftext|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151644": {
+      "content": "<|im_start|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151645": {
+      "content": "<|im_end|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151646": {
+      "content": "<|object_ref_start|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151647": {
+      "content": "<|object_ref_end|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151648": {
+      "content": "<|box_start|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151649": {
+      "content": "<|box_end|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151650": {
+      "content": "<|quad_start|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151651": {
+      "content": "<|quad_end|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151652": {
+      "content": "<|vision_start|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151653": {
+      "content": "<|vision_end|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151654": {
+      "content": "<|vision_pad|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151655": {
+      "content": "<|image_pad|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151656": {
+      "content": "<|video_pad|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": true
+    },
+    "151657": {
+      "content": "<tool_call>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": false
+    },
+    "151658": {
+      "content": "</tool_call>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": false
+    },
+    "151659": {
+      "content": "<|fim_prefix|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": false
+    },
+    "151660": {
+      "content": "<|fim_middle|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "special": false
+    },
+    "151661": {
+      "content": "<|fim_suffix|>",
+      "lstrip": false,
+      "normalized": false,
+      "rstrip": false,
+      "single_word": false,
+      "sp{"question": "Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?", "answer": "Natalia sold 48/2 = <<48/2=24>>24 clips in May.\nNatalia sold 48+24 = <<48+24=72>>72 clips altogether in April and May.\n#### 72"}
+{"question": "Weng earns $12 an hour for babysitting. Yesterday, she just did 50 minutes of babysitting. How much did she earn?", "answer": "Weng earns 12/60 = $<<12/60=0.2>>0.2 per minute.\nWorking 50 minutes, she earned 0.2 x 50 = $<<0.2*50=10>>10.\n#### 10"}
+7473 data/train.jsonl
+---
+license: apache-2.0
+license_link: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct/blob/main/LICENSE
+language:
+- en
+pipeline_tag: text-generation
+base_model: Qwen/Qwen2.5-1.5B
+tags:
+- chat
+library_name: transformers
+---
+
+# Qwen2.5-1.5B-Instruct
+
+## Introduction
+
+Qwen2.5 is the latest series of Qwen large language models. For Qwen2.5, we release a number of base language models and instruction-tuned language models ranging from 0.5 to 72 billion parameters. Qwen2.5 brings the following improvements upon Qwen2:
+
+- Significantly **more knowledge** and has greatly improved capabilities in **coding** and **mathematics**, thanks to our specialized expert models in these domains.
+- Significant improvements in **instruction following**, **generating long texts** (over 8K tokens), **understanding structured data** (e.g, tables), and **generating structured outputs** especially JSON. **More resilient to the diversity of system prompts**, enhancing role-play implementation and condition-setting for chatbots.
+- **Long-context Support** up to 128K tokens and can generate up to 8K tokens.
+- **Multilingual support** for over 29 languages, including Chinese, English, French, Spanish, Portuguese, German, Italian, Russian, Japanese, Korean, Vietnamese, Thai, Arabic, and more. 
+
+**This repo contains the instruction-tuned 1.5B Qwen2.5 model**, which has the following features:
+- Type: Causal Language Models
+- Training Stage: Pretraining & Post-training
+- Architecture: transformers with RoPE, SwiGLU, RMSNorm, Attention QKV bias and tied word embeddings
+- Number of Parameters: 1.54B
+- Number of Paramaters (Non-Embedding): 1.31B
+- Number of Layers: 28
+- Number of Attention Heads (GQA): 12 for Q and 2 for KV
+- Context Length: Full 32,768 tokens and generation 8192 tokens
+
+For more details, please refer to our [blog](https://qwenlm.github.io/blog/qwen2.5/), [GitHub](https://github.com/QwenLM/Qwen2.5), and [Documentation](https://qwen.readthedocs.io/en/latest/).
+
+## Requirements
+
+The code of Qwen2.5 has been in the latest Hugging face `transformers` and we advise you to use the latest version of `transformers`.
+
+With `transformers<4.37.0`, you will encounter the following error:
+```
+KeyError: 'qwen2'
+```
+
+## Quickstart
+
+Here provides a code snippet with `apply_chat_template` to show you how to load the tokenizer and model and how to generate contents.
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model_name = "Qwen/Qwen2.5-1.5B-Instruct"
+
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype="auto",
+    device_map="auto"
+)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+
+
+AGENT
+The budget is one hour, and the base model is Qwen2.5-1.5B-Instruct. I’ll start with LoRA supervised training on the provided GSM8K solutions, using seed 20261108 and a held-out split. This should leave time for full evaluation and a second iteration based on the result.
+
+COMMAND
+/bin/bash -lc "TMPDIR=./cache/tmp python -c \"import importlib.util; print('flash_attn',bool(importlib.util.find_spec('flash_attn'))); print('vllm',bool(importlib.util.find_spec('vllm')))\"
+curl -s \""'$GRADING_SERVER_URL/health"'
+EXIT 0
+flash_attn False
+vllm True
+{"available_gpus":["0"],"status":"ok","task":"gsm8k","workspace":"/workspace"}
+
+
+COMMAND
+/bin/bash -lc 'df -h .'
+EXIT 0
+Filesystem      Size  Used Avail Use% Mounted on
+tmpfs            24G   16K   24G   1% /workspace
+
+
+COMMAND
+/bin/bash -lc 'tail -n 8 logs/v1.log
+date -u +%s'
+EXIT 0
+1794170157
+
+
+COMMAND
+/bin/bash -lc 'tail -n 8 logs/v1.log
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader'
+EXIT 0
+{"event": "data", "train_examples": 7217, "validation_examples": 256, "timestamp": "2026-11-08T20:35:57.392560+00:00"}
+trainable params: 36,929,536 || all params: 1,580,643,840 || trainable%: 2.3364
+{"event": "validation", "step": 0, "loss": 0.6680263951420784, "timestamp": "2026-11-08T20:36:00.148003+00:00"}
+{"event": "train", "step": 1, "loss": 0.5557033717632294, "lr": 6.666666666666667e-06, "grad_norm": 1.9202220439910889, "elapsed_s": 1.3156051635742188, "timestamp": "2026-11-08T20:36:01.468302+00:00"}
+{"event": "train", "step": 2, "loss": 0.734507367014885, "lr": 1.3333333333333333e-05, "grad_norm": 2.0241379737854004, "elapsed_s": 2.465017318725586, "timestamp": "2026-11-08T20:36:02.617713+00:00"}
+{"event": "train", "step": 3, "loss": 0.586760476231575, "lr": 2e-05, "grad_norm": 1.6812793016433716, "elapsed_s": 3.7160773277282715, "timestamp": "2026-11-08T20:36:03.868773+00:00"}
+{"event": "train", "step": 4, "loss": 0.6602966487407684, "lr": 2.6666666666666667e-05, "grad_norm": 1.5058531761169434, "elapsed_s": 4.937111854553223, "timestamp": "2026-11-08T20:36:05.089808+00:00"}
+31866 MiB, 98 %
+
+
+COMMAND
+/bin/bash -lc "cat > code/submit.py <<'PY'
+import json,os,sys,time,urllib.request
+from pathlib import Path
+from datetime import datetime,timezone
+name=sys.argv[1]
+settings=json.loads(Path(f'logs/{name}_settings.json').read_text())
+req=urllib.request.Request(os.environ['GRADING_SERVER_URL']+'/submit',data=json.dumps({'model_path':f'./output/{name}','gpu':'0'}).encode(),headers={'Content-Type':'application/json'})
+start=time.time()
+try:
+ with urllib.request.urlopen(req,timeout=1500) as r: raw=r.read().decode()
+except Exception as e:
+ raw=json.dumps({'error':str(e)})
+Path(f'logs/{name}_submission.json').write_text(raw)
+try: result=json.loads(raw)
+except: result={}
+with open('summary.md','a') as f:
+ f.write(f'\\n## Submission {name} ({datetime.now(timezone.utc):%Y-%m-%d %H:%M})\\n- **状态**: {\"✅ 成功\" if \"score\" in result else \"❌ 失败\"}\\n- **Score**: {result.get(\"score\",\"N/A\")} | Improvement: {result.get(\"improvement\",\"N/A\")} | Best: {result.get(\"best\",\"N/A\")}\\n- **训练类型**: SFT (LoRA merged full model)\\n- **超参数**: "'`{json.dumps(settings)}`'"\\n- **做了什么**: 训练进程结束并释放GPU后，将 output/{name} 完整模型提交到官方评测；等待完整测试集评测结果，用时{time.time()-start:.1f}秒。\\n- **为什么**: 使用官方准确率反馈选择下一轮训练策略，保留已提交最佳模型。\\n- **问题/进步**: 官方返回如下。\\n- **下一步建议**: 根据分数和剩余时间继续训练或保留最佳结果。\\n- **Grading server response (verbatim)**:\\n"'```json'"\\n{raw}\\n"'```'"\\n')
+print(raw,flush=True)
+PY
+. code/env.sh
+python -m py_compile code/train.py code/submit.py"
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'tail -n 3 logs/v1.log
+date -u +%s'
+EXIT 0
+{"event": "train", "step": 54, "loss": 0.4021439179778099, "lr": 9.338293014885211e-05, "grad_norm": 0.3929290771484375, "elapsed_s": 64.47673487663269, "timestamp": "2026-11-08T20:37:04.629431+00:00"}
+{"event": "train", "step": 55, "loss": 0.44863592833280563, "lr": 9.304955097263981e-05, "grad_norm": 0.425891637802124, "elapsed_s": 65.60594654083252, "timestamp": "2026-11-08T20:37:05.758642+00:00"}
+{"event": "train", "step": 56, "loss": 0.43297571688890457, "lr": 9.270877542657726e-05, "grad_norm": 0.4005105495452881, "elapsed_s": 66.71747422218323, "timestamp": "2026-11-08T20:37:06.870171+00:00"}
+1794170227
+
+
+AGENT
+Training is running at about 1.2 seconds per optimizer step. The first pass should finish in roughly five minutes. Per-step losses, learning rates, gradient norms, timestamps, and split indices are being saved under `logs/`.
+
+COMMAND
+/bin/bash -lc "tail -n 2 logs/v1.log
+rg 'validation' logs/v1.log"
+EXIT 127
+{"event": "train", "step": 108, "loss": 0.4109412208199501, "lr": 6.714227579194548e-05, "grad_norm": 0.3789697289466858, "elapsed_s": 132.75035738945007, "timestamp": "2026-11-08T20:38:12.903055+00:00"}
+{"event": "train", "step": 109, "loss": 0.3872116655111313, "lr": 6.655271645660552e-05, "grad_norm": 0.41697224974632263, "elapsed_s": 133.7321960926056, "timestamp": "2026-11-08T20:38:13.884893+00:00"}
+/bin/bash: line 2: rg: command not found
+
+
+AGENT
+The first run has passed step 100 without errors. I’ll use held-out loss to check generalization, then submit the merged model for an accuracy measurement.
+
+COMMAND
+/bin/bash -lc "tail -n 2 logs/v1.log
+grep 'validation' logs/v1.log
+date -u +%s"
+EXIT 0
+{"event": "train", "step": 158, "loss": 0.38361749798059464, "lr": 3.846597535637272e-05, "grad_norm": 0.40743178129196167, "elapsed_s": 195.87490582466125, "timestamp": "2026-11-08T20:39:16.027602+00:00"}
+{"event": "train", "step": 159, "loss": 0.3854761868715286, "lr": 3.796412074191591e-05, "grad_norm": 0.36750683188438416, "elapsed_s": 196.95718336105347, "timestamp": "2026-11-08T20:39:17.109879+00:00"}
+{"event": "data", "train_examples": 7217, "validation_examples": 256, "timestamp": "2026-11-08T20:35:57.392560+00:00"}
+{"event": "validation", "step": 0, "loss": 0.6680263951420784, "timestamp": "2026-11-08T20:36:00.148003+00:00"}
+{"event": "validation", "step": 75, "loss": 0.46670495346188545, "timestamp": "2026-11-08T20:37:31.291493+00:00"}
+{"event": "validation", "step": 150, "loss": 0.4600800387561321, "timestamp": "2026-11-08T20:39:06.150205+00:00"}
+1794170358
+
+
+AGENT
+Held-out loss fell from 0.668 to 0.460 by step 150. That is encouraging, though exact-answer accuracy still needs evaluation. The run is on track to finish shortly.
+
+COMMAND
+/bin/bash -lc 'tail -n 2 logs/v1.log'
+EXIT 0
+{"event": "train", "step": 205, "loss": 0.43654467165470123, "lr": 2.1777087768554372e-05, "grad_norm": 0.411029577255249, "elapsed_s": 255.70647954940796, "timestamp": "2026-11-08T20:40:15.859176+00:00"}
+{"event": "train", "step": 206, "loss": 0.47433918714523315, "lr": 2.1604990338284444e-05, "grad_norm": 0.3855808973312378, "elapsed_s": 256.9464182853699, "timestamp": "2026-11-08T20:40:17.099114+00:00"}
+
+
+AGENT
+The first pass is nearly complete. Next I’ll save the merged full model, confirm the training process has exited, and submit it with the GPU free.
+
+COMMAND
+/bin/bash -lc "cat > code/env.sh <<'EOF'
+export TMPDIR=./cache/tmp
+export HF_HOME=./cache/hf
+export HF_DATASETS_CACHE=./cache/hf/datasets
+export TORCH_HOME=./cache/torch
+export TORCHINDUCTOR_CACHE_DIR=./cache/torchinductor
+export TRITON_CACHE_DIR=./cache/triton
+export XDG_CACHE_HOME=./cache
+export WANDB_DISABLED=true
+export TOKENIZERS_PARALLELISM=false
+export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS=8
+EOF
+cat > code/train.py <<'PY'
+import os, json, random, re, time, argparse, math, traceback
+from datetime import datetime, timezone
+from pathlib import Path
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM, set_seed
+from peft import LoraConfig, get_peft_model, PeftModel
+
+p=argparse.ArgumentParser()
+p.add_argument('--name', default='v1'); p.add_argument('--steps',type=int,default=225)
+p.add_argument('--lr',type=float,default=1e-4); p.add_argument('--resume',default=None)
+p.add_argument('--batch',type=int,default=8); p.add_argument('--accum',type=int,default=4)
+a=p.parse_args()
+settings=dict(training_type='SFT',seed=20261108,split_seed=20261108,lr=a.lr,steps=a.steps,batch_size=a.batch,gradient_accumulation=a.accum,effective_batch=a.batch*a.accum,max_length=512,lora_rank=32,lora_alpha=64,lora_dropout=0.05,weight_decay=0.01,warmup_steps=15,resume=a.resume,answer_only_loss=True,remove_calculator_annotations=True)
+Path('logs').mkdir(exist_ok=True)
+json.dump(settings,open(f'logs/{a.name}_settings.json','w'),indent=2)
+metrics=open(f'logs/{a.name}_metrics.jsonl','a',buffering=1)
+def log(**x):
+ x.update(timestamp=datetime.now(timezone.utc).isoformat(),settings=settings); metrics.write(json.dumps(x)+'\\n'); print(json.dumps({k:v for k,v in x.items() if k"'!='"'settings'}),flush=True)
+def summary(ok,detail):
+ with open('summary.md','a') as f:
+  f.write(f'\\n## Attempt {a.name} ({datetime.now(timezone.utc):%Y-%m-%d %H:%M})\\n- **状态**: {\"✅ 成功\" if ok else \"❌ 失败\"}\\n- **Score**: 尚未提交 | Improvement: N/A | Best: N/A\\n- **训练类型**: SFT (LoRA)\\n- **超参数**: "'`{json.dumps(settings)}`'"\\n- **做了什么**: 用训练集的逐步解答进行仅回答部分的交叉熵训练；移除 <<计算器标记>>，保留文字推理与 #### 数字答案；随机保留256条验证数据并记录索引。保存适配器和合并后的完整模型。{detail}\\n- **为什么**: 一小时预算内优先使用高质量已知正确的推理轨迹，避免在线采样成本；LoRA限制参数变化以保留原模型数学能力，验证损失用于监测泛化。\\n- **问题/进步**: {detail}\\n- **关键代码**: "'`labels = [-100]*len(prompt_ids) + answer_ids; loss.backward(); model.merge_and_unload()`'"\\n- **下一步建议**: 释放GPU后提交完整模型，根据准确率与剩余时间调整训练。\\n')
+try:
+ set_seed(20261108); torch.set_num_threads(8)
+ tok=AutoTokenizer.from_pretrained('./models/base'); tok.pad_token=tok.eos_token
+ rows=[json.loads(l) for l in open('data/train.jsonl')]
+ ids=list(range(len(rows))); random.Random(20261108).shuffle(ids)
+ train_ids,val_ids=ids[256:],ids[:256]
+ json.dump(dict(seed=20261108,train=train_ids,validation=val_ids),open('logs/split.json','w'))
+ def encode(i):
+  r=rows[i]; prompt=tok.apply_chat_template([{'role':'user','content':r['question']+'\\nPlease reason step by step, and put your final answer in the form #### <number>.'}],tokenize=False,add_generation_prompt=True)
+  pi=tok.encode(prompt,add_special_tokens=False); ans=tok.encode(re.sub(r'<<.*?>>','',r['answer'])+tok.eos_token,add_special_tokens=False)
+  return (pi+ans,[-100]*len(pi)+ans)
+ train=[encode(i) for i in train_ids]; val=[encode(i) for i in val_ids]
+ train=[r for r in train if len(r[0])<=512]; val=[r for r in val if len(r[0])<=512]
+ log(event='data',train_examples=len(train),validation_examples=len(val))
+ model=AutoModelForCausalLM.from_pretrained('./models/base',dtype=torch.bfloat16,attn_implementation='sdpa').cuda(); model.config.use_cache=False
+ if a.resume: model=PeftModel.from_pretrained(model,a.resume,is_trainable=True)
+ else: model=get_peft_model(model,LoraConfig(r=32,lora_alpha=64,lora_dropout=.05,target_modules=['q_proj','k_proj','v_proj','o_proj','gate_proj','up_proj','down_proj'],task_type='CAUSAL_LM'))
+ model.print_trainable_parameters()
+ opt=torch.optim.AdamW([p for p in model.parameters() if p.requires_grad],lr=a.lr,weight_decay=.01)
+ def batch(ex):
+  n=(max(len(r[0]) for r in ex)+7)//8*8
+  return dict(input_ids=torch.tensor([r[0]+[tok.pad_token_id]*(n-len(r[0])) for r in ex],device='cuda'),labels=torch.tensor([r[1]+[-100]*(n-len(r[1])) for r in ex],device='cuda'),attention_mask=torch.tensor([[1]*len(r[0])+[0]*(n-len(r[0])) for r in ex],device='cuda'))
+ def validate(step):
+  model.eval(); losses=[]
+  with torch.no_grad():
+   for i in range(0,min(128,len(val)),a.batch): losses.append(model(**batch(val[i:i+a.batch])).loss.item())
+  log(event='validation',step=step,loss=sum(losses)/len(losses)); model.train()
+ validate(0)
+ order=list(range(len(train))); rng=random.Random(20261108); rng.shuffle(order); cursor=0
+ start=time.time(); model.train()
+ for step in range(1,a.steps+1):
+  opt.zero_grad(set_to_none=True); total=0
+  lr=a.lr*min(step/15,1)*(0.2+0.8*.5*(1+math.cos(math.pi*max(0,step-15)/max(1,a.steps-15))))
+  for group in opt.param_groups: group['lr']=lr
+  for micro in range(a.accum):
+   if cursor+a.batch>len(order): rng.shuffle(order); cursor=0
+   ex=[train[j] for j in order[cursor:cursor+a.batch]]; cursor+=a.batch
+   loss=model(**batch(ex)).loss; total+=loss.item()/a.accum; (loss/a.accum).backward()
+  norm=torch.nn.utils.clip_grad_norm_(model.parameters(),1.0); opt.step()
+  log(event='train',step=step,loss=total,lr=lr,grad_norm=float(norm),elapsed_s=time.time()-start)
+  if step%75==0: validate(step)
+ validate(a.steps)
+ model.save_pretrained(f'output/{a.name}_adapter'); tok.save_pretrained(f'output/{a.name}_adapter')
+ model=model.merge_and_unload(); model.config.use_cache=True
+ model.save_pretrained(f'output/{a.name}',safe_serialization=True); tok.save_pretrained(f'output/{a.name}')
+ path=Path(f'output/{a.name}/tokenizer_config.json'); config=json.loads(path.read_text()); config.pop('extra_special_tokens',None); path.write_text(json.dumps(config,indent=2))
+ log(event='saved',step=a.steps,path=f'output/{a.name}'); summary(True,f'完成{a.steps}步训练；指标见 logs/{a.name}_metrics.jsonl。')
+except Exception:
+ error=traceback.format_exc(); summary(False,error); raise
+PY
+printf '# 运行总结\\n' >> summary.md
+. code/env.sh
+python code/train.py --name v1 --steps 225 > logs/v1.log 2>&1"
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v1_submit.log
+date -u +%s'
+EXIT 0
+1794170489
+
+
+AGENT
+The first full model is saved and submitted. Training finished in 4 minutes 41 seconds, with held-out loss at 0.457. The training process exited and GPU memory returned to idle before evaluation began.
+
+COMMAND
+/bin/bash -lc 'cat logs/v1_submit.log
+cat run_meta.json
+date -u +%s'
+EXIT 0
+{"start_time": 1794170087, "timeout_s": 3600, "last_submit_time": null, "end_time": null}1794170554
+
+
+AGENT
+Full-test evaluation is still running. The submission wrapper will append the server’s exact response to `summary.md` as soon as it returns. About 52 minutes remain.
+
+COMMAND
+/bin/bash -lc 'cat logs/v1_submit.log
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader'
+EXIT 0
+175 MiB, 0 %
+
+
+COMMAND
+/bin/bash -lc 'curl -s "$GRADING_SERVER_URL/health"
+curl -s "$GRADING_SERVER_URL/time"
+cat logs/v1_submit.log'
+EXIT 0
+{"available_gpus":["0"],"status":"ok","task":"gsm8k","workspace":"/workspace"}
+{"end_time":null,"last_submit_time":null,"now":1794170622,"remaining":3065,"start_time":1794170087,"timeout_s":3600}
+
+
+COMMAND
+/bin/bash -lc 'tail -n 4 logs/v1.log
+nvidia-smi --query-gpu=memory.used --format=csv,noheader
+. code/env.sh
+python code/submit.py v1 > logs/v1_submit.log 2>&1'
+EXIT 0
+{"event": "train", "step": 225, "loss": 0.5220575407147408, "lr": 2e-05, "grad_norm": 0.44512811303138733, "elapsed_s": 280.697872877121, "timestamp": "2026-11-08T20:40:40.850569+00:00"}
+{"event": "validation", "step": 225, "loss": 0.45716582238674164, "timestamp": "2026-11-08T20:40:42.867260+00:00"}
+{"event": "validation", "step": 225, "loss": 0.45716582238674164, "timestamp": "2026-11-08T20:40:44.885303+00:00"}
+{"event": "saved", "step": 225, "path": "output/v1", "timestamp": "2026-11-08T20:40:46.607022+00:00"}
+172 MiB
+
+
+AGENT
+The grading service is healthy, but the submission has not returned yet. I’ll keep the GPU free while it is pending; the server reports about 51 minutes remaining.
+
+COMMAND
+/bin/bash -lc 'cat logs/v1_submit.log
+ls logs/v1_submission.json
+date -u +%s'
+EXIT 0
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":171.17,"improvement":-6.06,"model_path":"./output/v1","score":57.85,"submission_id":1,"timestamp":"2026-11-08T20:43:44.615358"},"elapsed_seconds":171.17,"improvement":-6.06,"model_path":"./output/v1","score":57.85,"submission_id":1,"timestamp":"2026-11-08T20:43:44.615358","total_submissions":1}
+
+logs/v1_submission.json
+1794170684
+
+
+AGENT
+The first model scored 57.85%, below the 63.91% baseline. The lower validation loss did not translate into better accuracy. I’ll test a weaker version of the trained update, then try training on the base model’s own correct solutions to preserve more of its reasoning style.
+
+COMMAND
+/bin/bash -lc "cat > code/generate.py <<'PY'
+import json,random,re,time
+from pathlib import Path
+from datetime import datetime,timezone
+from transformers import AutoTokenizer
+from vllm import LLM,SamplingParams
+seed=20261108
+settings=dict(seed=seed,model='./models/base',temperature=0.7,top_p=.95,n=2,max_tokens=512,prompts=2048)
+Path('logs/rollout_settings.json').write_text(json.dumps(settings,indent=2))
+rows=[json.loads(l) for l in open('./data/train.jsonl')]
+ids=json.loads(Path('logs/split.json').read_text())['train'][:settings['prompts']]
+tok=AutoTokenizer.from_pretrained('./models/base')
+llm=LLM(model='./models/base',dtype='bfloat16',gpu_memory_utilization=.75,max_model_len=1024,max_num_seqs=128,seed=seed,enable_prefix_caching=True)
+sampling=SamplingParams(n=2,temperature=.7,top_p=.95,max_tokens=512,seed=seed)
+def answer(t):
+ m=re.findall(r'####\\s*([-+]?\\d[\\d,]*(?:\\.\\d+)?)',t)
+ if not m: return None
+ try: return float(m[-1].replace(',',''))
+ except: return None
+out=open('logs/rollouts.jsonl','w',buffering=1); met=open('logs/rollout_metrics.jsonl','w',buffering=1)
+start=time.time(); good=0; total=0
+for k in range(0,len(ids),128):
+ subset=ids[k:k+128]
+ prompts=[tok.apply_chat_template([{'role':'user','content':rows[i]['question']+'\\nPlease reason step by step, and put your final answer in the form #### <number>.'}],tokenize=False,add_generation_prompt=True) for i in subset]
+ results=llm.generate(prompts,sampling,use_tqdm=False)
+ for i,result in zip(subset,results):
+  for o in result.outputs:
+   reward=int(answer(o.text)==answer(rows[i]['answer']) and answer(o.text) is not None)
+   record=dict(index=i,question=rows[i]['question'],answer=o.text,reward=reward,finish_reason=o.finish_reason,tokens=len(o.token_ids))
+   out.write(json.dumps(record)+'\\n'); total+=1; good+=reward
+ metric=dict(timestamp=datetime.now(timezone.utc).isoformat(),step=k//128+1,generated=total,reward=good/total,elapsed_s=time.time()-start,settings=settings)
+ met.write(json.dumps(metric)+'\\n'); print(json.dumps(metric),flush=True)
+PY"
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc ". code/env.sh
+python - <<'PY'
+p='code/train.py'
+s=open(p).read().replace(\"p.add_argument('--batch',type=int,default=8);\", \"p.add_argument('--data',default=None); p.add_argument('--max-length',type=int,default=512)\\np.add_argument('--batch',type=int,default=8);\")
+s=s.replace(\"training_type='SFT'\", \"training_type='RFT' if a.data else 'SFT'\").replace('max_length=512','max_length=a.max_length').replace('answer_only_loss=True','data=a.data,answer_only_loss=True')
+s=s.replace(\"def encode(i):\\n  r=rows[i];\", \"def encode_row(r):\\n \")
+s=s.replace(\"train=[encode(i) for i in train_ids]; val=[encode(i) for i in val_ids]\", \"train=[encode_row(rows[i]) for i in train_ids]; val=[encode_row(rows[i]) for i in val_ids]\\n if a.data:\\n  generated=[json.loads(l) for l in open(a.data)]\\n  train=[encode_row(r) for r in generated if r['reward']==1]\")
+s=s.replace('len(r[0])<=512','len(r[0])<=a.max_length')
+s=s.replace('SFT (LoRA)', \"{settings['training_type']} (LoRA)\")
+s=s.replace('用训练集的逐步解答进行仅回答部分的交叉熵训练', \"用训练集的逐步解答（若data非空，则筛选模型自身最终答案正确的采样轨迹）进行仅回答部分的交叉熵训练\")
+open(p,'w').write(s)
+PY
+python -m py_compile code/train.py
+cat logs/v2_submit.log
+tail -n 3 logs/v2.log
+date -u +%s"
+EXIT 0
+  File "code/train.py", line 22
+    释放GPU后提交完整模型，根据准确率与剩余时间调整训练。\n')
+                                    ^^^^^^^^^^^^^
+SyntaxError: f-string: unmatched '['
+1794170752
+
+
+COMMAND
+/bin/bash -lc "sed -i \"s/settings\\['training_type'\\]/settings.get(\\\"training_type\\\")/g\" code/train.py
+. code/env.sh
+python -m py_compile code/train.py
+sed -n '25,46p' code/train.py
+cat logs/v2_submit.log"
+EXIT 0
+ tok=AutoTokenizer.from_pretrained('./models/base'); tok.pad_token=tok.eos_token
+ rows=[json.loads(l) for l in open('data/train.jsonl')]
+ ids=list(range(len(rows))); random.Random(20261108).shuffle(ids)
+ train_ids,val_ids=ids[256:],ids[:256]
+ json.dump(dict(seed=20261108,train=train_ids,validation=val_ids),open('logs/split.json','w'))
+ def encode_row(r):
+  prompt=tok.apply_chat_template([{'role':'user','content':r['question']+'\nPlease reason step by step, and put your final answer in the form #### <number>.'}],tokenize=False,add_generation_prompt=True)
+  pi=tok.encode(prompt,add_special_tokens=False); ans=tok.encode(re.sub(r'<<.*?>>','',r['answer'])+tok.eos_token,add_special_tokens=False)
+  return (pi+ans,[-100]*len(pi)+ans)
+ train=[encode_row(rows[i]) for i in train_ids]; val=[encode_row(rows[i]) for i in val_ids]
+ if a.data:
+  generated=[json.loads(l) for l in open(a.data)]
+  train=[encode_row(r) for r in generated if r['reward']==1]
+ train=[r for r in train if len(r[0])<=a.max_length]; val=[r for r in val if len(r[0])<=a.max_length]
+ log(event='data',train_examples=len(train),validation_examples=len(val))
+ model=AutoModelForCausalLM.from_pretrained('./models/base',dtype=torch.bfloat16,attn_implementation='sdpa').cuda(); model.config.use_cache=False
+ if a.resume: model=PeftModel.from_pretrained(model,a.resume,is_trainable=True)
+ else: model=get_peft_model(model,LoraConfig(r=32,lora_alpha=64,lora_dropout=.05,target_modules=['q_proj','k_proj','v_proj','o_proj','gate_proj','up_proj','down_proj'],task_type='CAUSAL_LM'))
+ model.print_trainable_parameters()
+ opt=torch.optim.AdamW([p for p in model.parameters() if p.requires_grad],lr=a.lr,weight_decay=.01)
+ def batch(ex):
+  n=(max(len(r[0]) for r in ex)+7)//8*8
+
+
+AGENT
+The second submission uses 20% of the first run’s learned weight update. While it evaluates, I’ve prepared reward-filtered training: sample solutions for training questions, check their final answers against the provided labels, and train on the correct trajectories.
+
+COMMAND
+/bin/bash -lc "cat logs/v2_submit.log
+date -u +%s
+. code/env.sh
+python - <<'PY'
+p='code/train.py';s=open(p).read().replace('import os, json, random, re, time, argparse, math, traceback','import os, json, random, re, time, argparse, math, traceback, shutil').replace(\"Path('logs').mkdir(exist_ok=True)\",\"Path('logs').mkdir(exist_ok=True)\\nshutil.copyfile(__file__,f'logs/{a.name}_train.py')\");open(p,'w').write(s)
+p='code/submit.py';s=open(p).read().replace('SFT (LoRA merged full model)', '{settings.get(\"training_type\", \"SFT\")} (LoRA merged full model)');open(p,'w').write(s)
+PY
+python -m py_compile code/submit.py code/train.py"
+EXIT 0
+1794170768
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v2_submit.log
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader'
+EXIT 0
+44654 MiB, 0 %
+
+
+AGENT
+The second evaluation is still pending. The next training setup is ready; I’ll keep rollout generation paused until evaluation releases the shared GPU.
+
+COMMAND
+/bin/bash -lc 'cat logs/v2_submit.log
+date -u +%s'
+EXIT 0
+1794170889
+
+
+COMMAND
+/bin/bash -lc 'ls output/v2
+tail -n 12 summary.md'
+EXIT 0
+added_tokens.json
+chat_template.jinja
+config.json
+generation_config.json
+merges.txt
+model.safetensors
+special_tokens_map.json
+tokenizer.json
+tokenizer_config.json
+vocab.json
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":171.17,"improvement":-6.06,"model_path":"./output/v1","score":57.85,"submission_id":1,"timestamp":"2026-11-08T20:43:44.615358"},"elapsed_seconds":171.17,"improvement":-6.06,"model_path":"./output/v1","score":57.85,"submission_id":1,"timestamp":"2026-11-08T20:43:44.615358","total_submissions":1}
+
+```
+
+## Model adjustment v2 (2026-11-08 20:45)
+- **状态**: ✅ 成功
+- **训练类型**: SFT checkpoint interpolation
+- **超参数**: seed=20261108, v1 LoRA merge scale=0.2
+- **做了什么**: 将已训练v1适配器的增量缩小至20%，合并到基础模型形成完整v2。
+- **为什么**: v1准确率57.85低于基准63.91，测试降低训练偏移能否保留原有数学能力并获得格式适配收益。
+- **问题/进步**: 不进行新梯度更新，复用真实训练权重。
+- **下一步建议**: 官方提交评测。
+
+
+AGENT
+The scaled checkpoint is saved, and its construction settings are recorded in `summary.md`. About 46 minutes remain, leaving time for reward-filtered training and further full-test evaluations.
+
+COMMAND
+/bin/bash -lc 'cat logs/v2_submit.log
+date -u +%s'
+EXIT 0
+1794170957
+
+
+COMMAND
+/bin/bash -lc "cat > code/scale.py <<'PY'
+import json
+from pathlib import Path
+from datetime import datetime,timezone
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import PeftModel
+model=AutoModelForCausalLM.from_pretrained('./models/base',dtype=torch.bfloat16)
+model=PeftModel.from_pretrained(model,'./output/v1_adapter')
+for mod in model.modules():
+ if hasattr(mod,'set_scale'): mod.set_scale('default',0.2)
+model=model.merge_and_unload(); model.save_pretrained('./output/v2'); AutoTokenizer.from_pretrained('./models/base').save_pretrained('./output/v2')
+p=Path('output/v2/tokenizer_config.json'); d=json.loads(p.read_text()); d.pop('extra_special_tokens',None); p.write_text(json.dumps(d,indent=2))
+d=json.loads(Path('logs/v1_settings.json').read_text()); d['adapter_merge_scale']=0.2; d['source']='v1_adapter'; Path('logs/v2_settings.json').write_text(json.dumps(d,indent=2))
+with open('summary.md','a') as f: f.write(f'\\n## Model adjustment v2 ({datetime.now(timezone.utc):%Y-%m-%d %H:%M})\\n- **状态**: ✅ 成功\\n- **训练类型**: SFT checkpoint interpolation\\n- **超参数**: seed=20261108, v1 LoRA merge scale=0.2\\n- **做了什么**: 将已训练v1适配器的增量缩小至20%，合并到基础模型形成完整v2。\\n- **为什么**: v1准确率57.85低于基准63.91，测试降低训练偏移能否保留原有数学能力并获得格式适配收益。\\n- **问题/进步**: 不进行新梯度更新，复用真实训练权重。\\n- **下一步建议**: 官方提交评测。\\n')
+PY
+. code/env.sh
+python code/scale.py > logs/v2.log 2>&1
+python code/submit.py v2 > logs/v2_submit.log 2>&1"
+EXIT 0
+
+
+AGENT
+The scaled model’s evaluation has not returned yet. For the next run, reward filtering will use only the supplied training labels and exclude the 256 held-out examples.
+
+COMMAND
+/bin/bash -lc 'cat logs/v2_submit.log
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader
+date -u +%s'
+EXIT 0
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":240.37,"improvement":1.9,"model_path":"./output/v2","score":65.81,"submission_id":2,"timestamp":"2026-11-08T20:49:19.236500"},"elapsed_seconds":240.37,"improvement":1.9,"model_path":"./output/v2","score":65.81,"submission_id":2,"timestamp":"2026-11-08T20:49:19.236500","total_submissions":2}
+
+175 MiB, 0 %
+1794171022
+
+
+AGENT
+The weaker update scored **65.81%**, improving on the baseline by **1.90 points**. It is now the best submitted model. I’ve started sampling training-set solutions for the reward-filtered experiment.
+
+COMMAND
+/bin/bash -lc 'tail -n 10 logs/generate.log
+date -u +%s'
+EXIT 0
+(EngineCore_DP0 pid=542) Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):   0%|          | 0/35 [00:00<?, ?it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  20%|██        | 7/35 [00:00<00:00, 63.20it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  43%|████▎     | 15/35 [00:00<00:00, 70.07it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  66%|██████▌   | 23/35 [00:00<00:00, 73.75it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE):  91%|█████████▏| 32/35 [00:00<00:00, 76.52it/s]Capturing CUDA graphs (mixed prefill-decode, PIECEWISE): 100%|██████████| 35/35 [00:00<00:00, 73.21it/s]
+(EngineCore_DP0 pid=542) Capturing CUDA graphs (decode, FULL):   0%|          | 0/19 [00:00<?, ?it/s]Capturing CUDA graphs (decode, FULL):  47%|████▋     | 9/19 [00:00<00:00, 82.10it/s]Capturing CUDA graphs (decode, FULL): 100%|██████████| 19/19 [00:00<00:00, 89.97it/s]Capturing CUDA graphs (decode, FULL): 100%|██████████| 19/19 [00:00<00:00, 88.72it/s]
+(EngineCore_DP0 pid=542) INFO 11-08 20:50:46 [gpu_model_runner.py:4466] Graph capturing finished in 1 secs, took 0.31 GiB
+(EngineCore_DP0 pid=542) INFO 11-08 20:50:46 [core.py:254] init engine (profile, create kv cache, warmup model) took 10.37 seconds
+INFO 11-08 20:50:47 [llm.py:343] Supported tasks: ['generate']
+{"timestamp": "2026-11-08T20:50:56.241278+00:00", "step": 1, "generated": 256, "reward": 0.00390625, "elapsed_s": 9.070323705673218, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:51:04.891789+00:00", "step": 2, "generated": 512, "reward": 0.001953125, "elapsed_s": 17.720832586288452, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:51:13.935172+00:00", "step": 3, "generated": 768, "reward": 0.0026041666666666665, "elapsed_s": 26.76421594619751, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:51:22.956274+00:00", "step": 4, "generated": 1024, "reward": 0.00390625, "elapsed_s": 35.78531813621521, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:51:32.303488+00:00", "step": 5, "generated": 1280, "reward": 0.00390625, "elapsed_s": 45.13253164291382, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+1794171095
+
+
+COMMAND
+/bin/bash -lc 'head -n 2 logs/rollouts.jsonl'
+EXIT 0
+{"index": 3495, "question": "In his first season at Best Hockey's team, Louie scored four goals in the last hockey match of this season. His brother has scored twice as many goals as Louie scored in the last match in each game he's played in each of the three seasons he's been on the team. Each season has 50 games.  What is the total number of goals the brothers have scored between them if, in the previous matches, Louie scored 40 goals?", "answer": "To calculate the total number of goals scored by Louie and his brother, let's break it down step by step:\n\n1. **Louie's Goals:**\n   - In his first season, Louie scored 4 goals in the last match.\n   - Louie has played for three seasons.\n   - Each season has 50 games, so Louie has played a total of \\(3 \\times 50 = 150\\) games.\n   - Louie's total goals over the three seasons: \\(40 + 4 \\times 150 = 40 + 600 = 640\\).\n\n2. **Louie's Brother's Goals:**\n   - Louie's brother scored twice as many goals as Louie in the last match, which is \\(4 \\times 2 = 8\\) goals.\n   - Louie's brother has played for three seasons as well.\n   - Each season has 50 games, so Louie's brother has played a total of \\(3 \\times 50 = 150\\) games.\n   - Louie's brother's total goals over the three seasons: \\(8 \\times 150 = 1200\\).\n\n3. **Total Goals:**\n   - Louie's total goals: 640\n   - Louie's brother's total goals: 1200\n   - Total goals scored by both brothers: \\(640 + 1200 = 1840\\).\n\nTherefore, the total number of goals the brothers have scored between them is **1840**.", "reward": 0, "finish_reason": "stop", "tokens": 342}
+{"index": 3495, "question": "In his first season at Best Hockey's team, Louie scored four goals in the last hockey match of this season. His brother has scored twice as many goals as Louie scored in the last match in each game he's played in each of the three seasons he's been on the team. Each season has 50 games.  What is the total number of goals the brothers have scored between them if, in the previous matches, Louie scored 40 goals?", "answer": "Let's break down the problem step by step:\n\n1. **Louie's goals in the last match:**\n   - Louie scored 4 goals in the last match.\n\n2. **Louie's total goals so far this season:**\n   - Louie scored 40 goals in previous matches.\n   - Louie scored 4 goals in the last match.\n   - Total goals for Louie this season: \\(40 + 4 = 44\\)\n\n3. **Louie's total goals in three seasons:**\n   - Louie has played 50 games per season for 3 seasons.\n   - Total games for Louie: \\(50 \\times 3 = 150\\)\n   - Louie's total goals: \\(44 \\times 3 = 132\\)\n\n4. **Louie's total goals in his career:**\n   - Louie's career total goals: \\(132\\)\n\n5. **Louie's brother's goals:**\n   - Louie's brother scored twice as many goals as Louie in each game he played in each season.\n   - Louie scored 4 goals in each game.\n   - Louie's brother's goals per season: \\(4 \\times 2 \\times 50 = 400\\)\n   - Louie's brother's total goals: \\(400 \\times 3 = 1200\\)\n\n6. **Total goals scored by both brothers:**\n   - Louie's total goals: \\(132\\)\n   - Louie's brother's total goals: \\(1200\\)\n   - Total goals for both brothers: \\(132 + 1200 = 1332\\)\n\nTherefore, the total number of goals the brothers have scored between them is \\(\\boxed{1332}\\).", "reward": 0, "finish_reason": "stop", "tokens": 394}
+
+
+COMMAND
+/bin/bash -lc ". code/env.sh
+python - <<'PY'
+from transformers import AutoTokenizer
+t=AutoTokenizer.from_pretrained('./models/base')
+print(t.apply_chat_template([{'role':'user','content':'How many?\\nPlease reason step by step, and put your final answer in the form #### <number>.'}],tokenize=False,add_generation_prompt=True))
+PY"
+EXIT 0
+<|im_start|>system
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant.<|im_end|>
+<|im_start|>user
+How many?
+Please reason step by step, and put your final answer in the form #### <number>.<|im_end|>
+<|im_start|>assistant
+
+
+
+AGENT
+The early samples exposed a format issue: the base model often ends with a boxed or plain-number answer despite the `####` instruction. I’ll check those answers too, reject truncated completions, and add a canonical `####` line to verified correct solutions before training.
+
+COMMAND
+/bin/bash -lc "cat > code/reward.py <<'PY'
+import json,re
+from collections import Counter
+from datetime import datetime,timezone
+from pathlib import Path
+rows=[json.loads(l) for l in open('data/train.jsonl')]
+def extract(text):
+ for pattern in [r'####\\s*([-+]?\\d[\\d,]*(?:\\.\\d+)?)',r'\\\\boxed\\{\\s*([-+]?\\d[\\d,]*(?:\\.\\d+)?)\\s*\\}',r'([-+]?\\d[\\d,]*(?:\\.\\d+)?)']:
+  m=re.findall(pattern,text)
+  if m:
+   try:return float(m[-1].replace(',',''))
+   except:pass
+ return None
+counts=Counter(); out=open('logs/rewarded.jsonl','w')
+for line in open('logs/rollouts.jsonl'):
+ r=json.loads(line); target=extract(rows[r['index']]['answer']); pred=extract(r['answer'])
+ r['original_format_reward']=r['reward']; r['reward']=int(pred==target and r['finish_reason']=='stop')
+ counts['total']+=1; counts['correct']+=r['reward']; counts['truncated']+=int(r['finish_reason']"'!='"'stop')
+ if r['reward'] and '####' not in r['answer']:
+  r['answer']+='\\n#### '+re.search(r'####\\s*(.*)',rows[r['index']]['answer']).group(1).strip()
+ out.write(json.dumps(r)+'\\n')
+metrics=dict(timestamp=datetime.now(timezone.utc).isoformat(),seed=20261108,counts=dict(counts),reward=counts['correct']/counts['total'],rules='last hash answer, else boxed number, else last number; reject truncations; canonicalize correct answer')
+Path('logs/reward_metrics.json').write_text(json.dumps(metrics,indent=2));print(json.dumps(metrics))
+with open('summary.md','a') as f:f.write(f'\\n## Data processing: reward filtering ({datetime.now(timezone.utc):%Y-%m-%d %H:%M})\\n- **做了什么**: 基础模型按seed=20261108对2048个训练问题各采样2条解答，temperature=0.7，top_p=0.95，max_tokens=512。检查训练标签数值，排除截断输出，正确解答补齐####格式。原始轨迹和重算奖励分别保留。\\n- **为什么**: 初始严格####奖励遗漏了多数boxed/普通数字答案；数值检查允许保留模型自身正确推理风格，同时学习要求的结束格式。\\n- **结果**: "'`{json.dumps(metrics)}`'"\\n')
+PY
+tail -n 3 logs/generate.log"
+EXIT 0
+{"timestamp": "2026-11-08T20:51:50.179659+00:00", "step": 7, "generated": 1792, "reward": 0.005022321428571429, "elapsed_s": 63.00870370864868, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:51:59.039196+00:00", "step": 8, "generated": 2048, "reward": 0.00439453125, "elapsed_s": 71.86823987960815, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:52:08.512588+00:00", "step": 9, "generated": 2304, "reward": 0.00390625, "elapsed_s": 81.34163093566895, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+
+
+COMMAND
+/bin/bash -lc 'tail -n 3 logs/generate.log
+date -u +%s'
+EXIT 0
+{"timestamp": "2026-11-08T20:52:43.979851+00:00", "step": 13, "generated": 3328, "reward": 0.002704326923076923, "elapsed_s": 116.80889463424683, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:52:53.222261+00:00", "step": 14, "generated": 3584, "reward": 0.0027901785714285715, "elapsed_s": 126.0513048171997, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:53:02.353213+00:00", "step": 15, "generated": 3840, "reward": 0.0026041666666666665, "elapsed_s": 135.18225717544556, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+1794171190
+
+
+AGENT
+Sampling is nearly finished: 3,840 of 4,096 trajectories are saved. I’ll preserve the raw outputs and the recomputed rewards so the filtering decisions can be audited.
+
+COMMAND
+/bin/bash -lc "ps -eo pid,ppid,args | grep -E 'code/generate.py|EngineCore|code/train.py' | grep -v grep
+tail -n 6 logs/generate.log
+tail -n 3 logs/v3.log
+nvidia-smi --query-gpu=memory.used --format=csv,noheader"
+EXIT 0
+    505      79 /bin/bash -c . code/env.sh python code/generate.py > logs/generate.log 2>&1
+    506     505 python code/generate.py
+    542     506 VLLM::EngineCore
+    875      79 /bin/bash -c . code/env.sh python code/reward.py python code/train.py --name v3 --data logs/rewarded.jsonl --max-length 768 --batch 4 --accum 4 --steps 150 --lr 0.00003 > logs/v3.log 2>&1
+    877     875 python code/train.py --name v3 --data logs/rewarded.jsonl --max-length 768 --batch 4 --accum 4 --steps 150 --lr 0.00003
+{"timestamp": "2026-11-08T20:52:26.690422+00:00", "step": 11, "generated": 2816, "reward": 0.0031960227272727275, "elapsed_s": 99.5194661617279, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:52:35.725022+00:00", "step": 12, "generated": 3072, "reward": 0.0029296875, "elapsed_s": 108.55406594276428, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:52:43.979851+00:00", "step": 13, "generated": 3328, "reward": 0.002704326923076923, "elapsed_s": 116.80889463424683, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:52:53.222261+00:00", "step": 14, "generated": 3584, "reward": 0.0027901785714285715, "elapsed_s": 126.0513048171997, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:53:02.353213+00:00", "step": 15, "generated": 3840, "reward": 0.0026041666666666665, "elapsed_s": 135.18225717544556, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"timestamp": "2026-11-08T20:53:11.602228+00:00", "step": 16, "generated": 4096, "reward": 0.00244140625, "elapsed_s": 144.4312722682953, "settings": {"seed": 20261108, "model": "./models/base", "temperature": 0.7, "top_p": 0.95, "n": 2, "max_tokens": 512, "prompts": 2048}}
+{"event": "data", "train_examples": 3180, "validation_examples": 256, "timestamp": "2026-11-08T20:53:42.579275+00:00"}
+41124 MiB
+
+
+COMMAND
+/bin/bash -lc 'kill -TERM 506 542
+tail -n 5 logs/v3.log'
+EXIT 0
+  File "/opt/fullbench/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/opt/fullbench/lib/python3.10/site-packages/torch/nn/modules/linear.py", line 134, in forward
+    return F.linear(input, self.weight, self.bias)
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 54.00 MiB. GPU 0 has a total capacity of 47.58 GiB of which 26.44 MiB is free. Process 2621742 has 37.09 GiB memory in use. Process 2623845 has 10.29 GiB memory in use. Of the allocated memory 9.73 GiB is allocated by PyTorch, and 117.33 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+
+
+COMMAND
+/bin/bash -lc '. code/env.sh
+python code/generate.py > logs/generate.log 2>&1'
+EXIT 143
+Terminated
+
+
+COMMAND
+/bin/bash -lc '. code/env.sh
+python code/reward.py
+python code/train.py --name v3 --data logs/rewarded.jsonl --max-length 768 --batch 4 --accum 4 --steps 150 --lr 0.00003 > logs/v3.log 2>&1'
+EXIT 1
+{"timestamp": "2026-11-08T20:53:37.513637+00:00", "seed": 20261108, "counts": {"total": 4096, "correct": 3180, "truncated": 67}, "reward": 0.7763671875, "rules": "last hash answer, else boxed number, else last number; reject truncations; canonicalize correct answer"}
+
+
+AGENT
+Filtering retained 3,180 correct solutions. The first training launch ran out of memory because the completed sampling worker had not exited and still held GPU memory. I terminated that worker, confirmed the GPU was idle, recorded the failure, and restarted training with separate logs.
+
+COMMAND
+/bin/bash -lc 'tail -n 3 logs/v3r.log
+date -u +%s'
+EXIT 0
+{"event": "train", "step": 18, "loss": 0.14554451033473015, "lr": 2.9970768603117894e-05, "grad_norm": 0.2952520549297333, "elapsed_s": 17.27181053161621, "timestamp": "2026-11-08T20:54:17.590886+00:00"}
+{"event": "train", "step": 19, "loss": 0.15138885006308556, "lr": 2.9948049487797654e-05, "grad_norm": 0.3166472017765045, "elapsed_s": 18.21850872039795, "timestamp": "2026-11-08T20:54:18.537585+00:00"}
+{"event": "train", "step": 20, "loss": 0.1395435519516468, "lr": 2.991886029290332e-05, "grad_norm": 0.33055657148361206, "elapsed_s": 19.022632360458374, "timestamp": "2026-11-08T20:54:19.341709+00:00"}
+1794171260
+
+
+COMMAND
+/bin/bash -lc "cat > code/dpo.py <<'PY'
+import argparse,json,random,time,math,re,traceback,shutil
+from pathlib import Path
+from collections import defaultdict
+from datetime import datetime,timezone
+import torch
+import torch.nn.functional as F
+from transformers import AutoModelForCausalLM,AutoTokenizer,set_seed
+from peft import LoraConfig,get_peft_model
+
+def main():
+ p=argparse.ArgumentParser();p.add_argument('--dpo',action='store_true');p.add_argument('--name',default='v4');p.add_argument('--steps',type=int,default=60);p.add_argument('--lr',type=float,default=2e-5);p.add_argument('--beta',type=float,default=.1);a=p.parse_args()
+ cfg=dict(training_type='DPO',seed=20261108,split_seed=20261108,steps=a.steps,lr=a.lr,beta=a.beta,batch_size=2,gradient_accumulation=8,effective_pair_batch=16,max_length=768,lora_rank=32,lora_alpha=64,lora_dropout=0.0,weight_decay=.01,reference='frozen base model',data='logs/rewarded.jsonl')
+ Path(f'logs/{a.name}_settings.json').write_text(json.dumps(cfg,indent=2));shutil.copyfile(__file__,f'logs/{a.name}_dpo.py');shutil.copyfile('code/train.py',f'logs/{a.name}_train.py')
+ met=open(f'logs/{a.name}_metrics.jsonl','a',buffering=1)
+ def log(**x):
+  x.update(timestamp=datetime.now(timezone.utc).isoformat(),settings=cfg);met.write(json.dumps(x)+'\\n');print(json.dumps({k:v for k,v in x.items() if k"'!='"'settings'}),flush=True)
+ def summary(ok,detail):
+  with open('summary.md','a') as f:f.write(f'\\n## Attempt {a.name} ({datetime.now(timezone.utc):%Y-%m-%d %H:%M})\\n- **状态**: {\"✅ 成功\" if ok else \"❌ 失败\"}\\n- **Score**: 尚未提交 | Improvement: N/A | Best: N/A\\n- **训练类型**: DPO\\n- **超参数**: "'`{json.dumps(cfg)}`'"\\n- **做了什么**: 对同一道训练问题的正确与错误模型采样构建偏好对；双方均补齐####答案格式并排除截断样本。以冻结基础模型为参考，训练LoRA偏好损失并保存合并完整模型。{detail}\\n- **为什么**: 首次SFT降低准确率，弱化增量有收益；DPO直接比较模型自身正确与错误推理，参考模型约束有助于保留原有能力，避免只拟合标准解答风格。\\n- **问题/进步**: {detail}\\n- **关键代码**: "'`loss = -logsigmoid(beta * ((chosen_logp-rejected_logp)-(ref_chosen_logp-ref_rejected_logp))).mean()`'"\\n- **下一步建议**: GPU释放后提交，根据官方准确率选择最佳模型。\\n')
+ try:
+  set_seed(20261108);torch.set_num_threads(8)
+  tok=AutoTokenizer.from_pretrained('./models/base');tok.pad_token=tok.eos_token
+  groups=defaultdict(list)
+  for l in open('logs/rewarded.jsonl'):
+   r=json.loads(l)
+   if r['finish_reason']=='stop':groups[r['index']].append(r)
+  def encode(r):
+   answer=r['answer']
+   if '####' not in answer:
+    ns=re.findall(r'[-+]?\\d[\\d,]*(?:\\.\\d+)?',answer)
+    if ns:answer+='\\n#### '+ns[-1].replace(',','')
+   prompt=tok.apply_chat_template([{'role':'user','content':r['question']+'\\nPlease reason step by step, and put your final answer in the form #### <number>.'}],tokenize=False,add_generation_prompt=True)
+   pi=tok.encode(prompt,add_special_tokens=False);ai=tok.encode(answer+tok.eos_token,add_special_tokens=False)
+   return pi+ai,[-100]*len(pi)+ai
+  pairs=[]
+  for group in groups.values():
+   good=[r for r in group if r['reward']];bad=[r for r in group if not r['reward']]
+   if good and bad:
+    c,r=encode(good[0]),encode(bad[0])
+    if max(len(c[0]),len(r[0]))<=768:pairs.append((c,r))
+  log(event='data',pairs=len(pairs))
+  model=AutoModelForCausalLM.from_pretrained('./models/base',dtype=torch.bfloat16,attn_implementation='sdpa').cuda();model.config.use_cache=False
+  model=get_peft_model(model,LoraConfig(r=32,lora_alpha=64,lora_dropout=0.,target_modules=['q_proj','k_proj','v_proj','o_proj','gate_proj','up_proj','down_proj'],task_type='CAUSAL_LM'))
+  opt=torch.optim.AdamW([p for p in model.parameters() if p.requires_grad],lr=a.lr,weight_decay=.01)
+  def pack(ex):
+   n=(max(len(x[0]) for x in ex)+7)//8*8
+   return dict(input_ids=torch.tensor([x[0]+[tok.pad_token_id]*(n-len(x[0])) for x in ex],device='cuda'),attention_mask=torch.tensor([[1]*len(x[0])+[0]*(n-len(x[0])) for x in ex],device='cuda')),torch.tensor([x[1]+[-100]*(n-len(x[0])) for x in ex],device='cuda')
+  def lp(inputs,labels):
+   logits=model(**inputs).logits[:,:-1,:];target=labels[:,1:]
+   token_losses=F.cross_entropy(logits.reshape(-1,logits.shape[-1]).float(),target.reshape(-1),ignore_index=-100,reduction='none')
+   return -token_losses.reshape(target.shape).sum(-1)
+  # Cache frozen-reference log probabilities once, for exactly the same tokenization.
+  refs=[]; model.eval()
+  with torch.no_grad(),model.disable_adapter():
+   for i in range(0,len(pairs),2):
+    ex=[item for pair in pairs[i:i+2] for item in pair];inputs,labels=pack(ex);v=lp(inputs,labels).reshape(-1,2).cpu().tolist();refs.extend(v)
+  log(event='reference_cached',pairs=len(refs)); model.train()
+  rng=random.Random(20261108);order=list(range(len(pairs)));rng.shuffle(order);cursor=0;start=time.time()
+  for step in range(1,a.steps+1):
+   opt.zero_grad(set_to_none=True);loss_sum=margin_sum=acc_sum=0
+   lr=a.lr*min(step/6,1)*(0.2+0.8*.5*(1+math.cos(math.pi*step/a.steps)))
+   for g in opt.param_groups:g['lr']=lr
+   for micro in range(8):
+    if cursor+2>len(order):rng.shuffle(order);cursor=0
+    ix=order[cursor:cursor+2];cursor+=2
+    inputs,labels=pack([item for i in ix for item in pairs[i]])
+    policy=lp(inputs,labels).reshape(-1,2);ref=torch.tensor([refs[i] for i in ix],device='cuda')
+    rewards=a.beta*(policy-ref);margin=rewards[:,0]-rewards[:,1]
+    loss=-F.logsigmoid(margin).mean();(loss/8).backward()
+    loss_sum+=loss.item()/8;margin_sum+=margin.mean().item()/8;acc_sum+=(margin>0).float().mean().item()/8
+   norm=torch.nn.utils.clip_grad_norm_(model.parameters(),1.);opt.step()
+   log(event='train',step=step,loss=loss_sum,reward_margin=margin_sum,preference_accuracy=acc_sum,grad_norm=float(norm),lr=lr,elapsed_s=time.time()-start)
+  model.save_pretrained(f'output/{a.name}_adapter');tok.save_pretrained(f'output/{a.name}_adapter');model=model.merge_and_unload();model.config.use_cache=True;model.save_pretrained(f'output/{a.name}');tok.save_pretrained(f'output/{a.name}')
+  path=Path(f'output/{a.name}/tokenizer_config.json');d=json.loads(path.read_text());d.pop('extra_special_tokens',None);path.write_text(json.dumps(d,indent=2))
+  log(event='saved',step=a.steps);summary(True,f'完成{a.steps}步，{len(pairs)}个偏好对。')
+ except Exception:
+  summary(False,traceback.format_exc());raise
+if __name__=='__main__':main()
+PY
+. code/env.sh
+python - <<'PY'
+p='code/train.py';s=open(p).read();s='''# DPO mode: default lr=2e-5, steps=60, beta=0.1, batch=2, accum=8, seed=20261108.
+import sys
+if '--dpo' in sys.argv:
+ from dpo import main
+ main()
+ sys.exit(0)
+'''+s;open(p,'w').write(s)
+PY
+python -m py_compile code/train.py code/dpo.py
+tail -n 2 logs/v3r.log"
+EXIT 0
+{"event": "train", "step": 69, "loss": 0.1137333232909441, "lr": 2.170820393249937e-05, "grad_norm": 0.2485663890838623, "elapsed_s": 65.24249982833862, "timestamp": "2026-11-08T20:55:05.561576+00:00"}
+{"event": "train", "step": 70, "loss": 0.14392442628741264, "lr": 2.144163879253308e-05, "grad_norm": 0.2685340344905853, "elapsed_s": 66.17344093322754, "timestamp": "2026-11-08T20:55:06.492517+00:00"}
+
+
+AGENT
+Reward-filtered training is running normally. I’ve also prepared a DPO experiment using questions where one sampled answer was correct and the other was wrong. That will test whether directly preferring successful solutions helps more than training on correct solutions alone.
+
+COMMAND
+/bin/bash -lc "tail -n 3 logs/v3r.log
+grep 'validation' logs/v3r.log
+date -u +%s"
+EXIT 0
+{"event": "train", "step": 138, "loss": 0.13700510933995247, "lr": 6.464859648740174e-06, "grad_norm": 0.2807176113128662, "elapsed_s": 132.53082823753357, "timestamp": "2026-11-08T20:56:12.849904+00:00"}
+{"event": "train", "step": 139, "loss": 0.112334243953228, "lr": 6.391017366445635e-06, "grad_norm": 0.23989608883857727, "elapsed_s": 133.5251693725586, "timestamp": "2026-11-08T20:56:13.844245+00:00"}
+{"event": "train", "step": 140, "loss": 0.15259027853608131, "lr": 6.323461553042115e-06, "grad_norm": 0.28681495785713196, "elapsed_s": 134.4714195728302, "timestamp": "2026-11-08T20:56:14.790496+00:00"}
+{"event": "data", "train_examples": 3180, "validation_examples": 256, "timestamp": "2026-11-08T20:53:57.386134+00:00"}
+{"event": "validation", "step": 0, "loss": 0.6700317552313209, "timestamp": "2026-11-08T20:54:00.315239+00:00"}
+{"event": "validation", "step": 75, "loss": 0.7086188839748502, "timestamp": "2026-11-08T20:55:12.857818+00:00"}
+1794171375
+
+
+AGENT
+The reward-filtered run is nearly done. Its loss on the original gold-answer style increased, so I won’t treat that metric as evidence of improvement. Full-test accuracy will determine whether the generated-solution approach helped.
+
+COMMAND
+/bin/bash -lc "nvidia-smi --query-gpu=memory.used --format=csv,noheader
+cat >> summary.md <<'EOF'
+
+### v3 failure root-cause clarification
+- 采样已完成，但vLLM生成进程在退出清理时仍占用37GiB GPU；随后训练分配验证前向内存触发OOM。已终止本任务生成进程506及其worker542，等待GPU恢复后使用新尝试名称v3r重试，保留失败日志。
+EOF
+. code/env.sh
+python code/train.py --name v3r --data logs/rewarded.jsonl --max-length 768 --batch 4 --accum 4 --steps 150 --lr 0.00003 > logs/v3r.log 2>&1"
+EXIT 0
+175 MiB
+
+
+COMMAND
+/bin/bash -lc 'df -h .
+du -sh output cache
+cat logs/v3r_submit.log'
+EXIT 0
+Filesystem      Size  Used Avail Use% Mounted on
+tmpfs            24G  9.1G   15G  38% /workspace
+9.0G	output
+70M	cache
+
+
+AGENT
+The reward-filtered model is submitted, with the training process exited and GPU memory back at idle beforehand. The current best remains 65.81%. There is enough time left for the DPO experiment and additional evaluation.
+
+COMMAND
+/bin/bash -lc 'cat logs/v3r_submit.log
+date -u +%s'
+EXIT 0
+1794171484
+
+
+AGENT
+For DPO, I’ve normalized the answer format on both correct and incorrect samples. That should keep the preference signal focused on correctness rather than the presence of a `####` line. Evaluation is still pending.
+
+COMMAND
+/bin/bash -lc 'cat logs/v3r_submit.log
+date -u +%s'
+EXIT 0
+1794171545
+
+
+COMMAND
+/bin/bash -lc "cat > code/merge.py <<'PY'
+import argparse,json
+from pathlib import Path
+from datetime import datetime,timezone
+import torch
+from transformers import AutoModelForCausalLM,AutoTokenizer
+from peft import PeftModel
+p=argparse.ArgumentParser();p.add_argument('--name',required=True);p.add_argument('--sources',nargs='+',required=True);p.add_argument('--weights',nargs='+',type=float,required=True);a=p.parse_args()
+assert len(a.sources)==len(a.weights)
+torch.set_num_threads(8)
+model=AutoModelForCausalLM.from_pretrained('./models/base',dtype=torch.bfloat16)
+model=PeftModel.from_pretrained(model,f'./output/{a.sources[0]}_adapter',adapter_name='a0')
+for i,source in enumerate(a.sources[1:],1):model.load_adapter(f'./output/{source}_adapter',adapter_name=f'a{i}')
+model.add_weighted_adapter([f'a{i}' for i in range(len(a.sources))],a.weights,'combined',combination_type='cat');model.set_adapter('combined')
+model=model.merge_and_unload(adapter_names=['combined']);model.save_pretrained(f'output/{a.name}');AutoTokenizer.from_pretrained('./models/base').save_pretrained(f'output/{a.name}')
+p=Path(f'output/{a.name}/tokenizer_config.json');d=json.loads(p.read_text());d.pop('extra_special_tokens',None);p.write_text(json.dumps(d,indent=2))
+settings=dict(training_type='trained checkpoint weighted merge',seed=20261108,sources=a.sources,weights=a.weights,source_settings={s:json.loads(Path(f'logs/{s}_settings.json').read_text()) for s in a.sources})
+Path(f'logs/{a.name}_settings.json').write_text(json.dumps(settings,indent=2))
+with open('summary.md','a') as f:f.write(f'\\n## Model adjustment {a.name} ({datetime.now(timezone.utc):%Y-%m-%d %H:%M})\\n- **状态**: ✅ 成功\\n- **训练类型**: trained checkpoint weighted merge\\n- **超参数**: "'`{json.dumps(settings)}`'"\\n- **做了什么**: 将{a.sources}的真实训练LoRA增量按{a.weights}加权，以cat方式精确表达加权增量后合并完整模型。\\n- **为什么**: 已观察弱化SFT增量优于完整增量，尝试保留数学能力并结合不同训练信号；此过程无新增梯度训练。\\n- **下一步建议**: 释放GPU后官方提交。\\n')
+print('Saved',a.name)
+PY
+. code/env.sh
+python -m py_compile code/merge.py"
+EXIT 0
+
+
+AGENT
+The reward-filtered evaluation is still running. I’ve prepared code to test weighted combinations of trained adapters later, since reducing the first update’s strength improved its score. These variants will reuse trained weights.
+
+COMMAND
+/bin/bash -lc 'cat logs/v3r_submit.log
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader
+date -u +%s'
+EXIT 0
+44654 MiB, 88 %
+1794171624
+
+
+AGENT
+The grader is still using the GPU for the reward-filtered model. About 33 minutes remain; I’ll start DPO once the result returns.
+
+COMMAND
+/bin/bash -lc 'tail -n 3 logs/v3r.log
+nvidia-smi --query-gpu=memory.used --format=csv,noheader
+. code/env.sh
+python code/submit.py v3r > logs/v3r_submit.log 2>&1'
+EXIT 0
+{"event": "validation", "step": 150, "loss": 0.706971563398838, "timestamp": "2026-11-08T20:56:26.101029+00:00"}
+{"event": "validation", "step": 150, "loss": 0.706971563398838, "timestamp": "2026-11-08T20:56:27.906984+00:00"}
+{"event": "saved", "step": 150, "path": "output/v3r", "timestamp": "2026-11-08T20:56:29.620170+00:00"}
+175 MiB
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v3r_submit.log
+date -u +%s'
+EXIT 0
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":232.51,"improvement":4.32,"model_path":"./output/v3r","score":68.23,"submission_id":3,"timestamp":"2026-11-08T21:00:36.343210"},"elapsed_seconds":232.51,"improvement":4.32,"model_path":"./output/v3r","score":68.23,"submission_id":3,"timestamp":"2026-11-08T21:00:36.343210","total_submissions":3}
+
+1794171688
+
+
+AGENT
+Reward-filtered training scored **68.23%**, a **4.32-point improvement** over baseline and the new best. I’ve started DPO from the base model to test the correct-versus-incorrect preference signal, while preserving the successful checkpoint.
+
+COMMAND
+/bin/bash -lc 'tail -n 5 logs/v4.log
+date -u +%s'
+EXIT 0
+{"event": "train", "step": 19, "loss": 0.6175808534026146, "reward_margin": 0.22829320468008518, "preference_accuracy": 0.625, "grad_norm": 3.618548631668091, "lr": 1.635711228012022e-05, "elapsed_s": 36.98903274536133, "timestamp": "2026-11-08T21:02:30.110884+00:00"}
+{"event": "train", "step": 20, "loss": 0.6203494742512703, "reward_margin": 0.28233094327151775, "preference_accuracy": 0.625, "grad_norm": 3.7717854976654053, "lr": 1.6000000000000003e-05, "elapsed_s": 38.866459369659424, "timestamp": "2026-11-08T21:02:31.988311+00:00"}
+{"event": "train", "step": 21, "loss": 0.6375173591077328, "reward_margin": 0.22423310205340385, "preference_accuracy": 0.5625, "grad_norm": 3.8893957138061523, "lr": 1.5631923997916378e-05, "elapsed_s": 41.10705375671387, "timestamp": "2026-11-08T21:02:34.228904+00:00"}
+{"event": "train", "step": 22, "loss": 0.6606834717094898, "reward_margin": 0.14207899756729603, "preference_accuracy": 0.4375, "grad_norm": 3.83478045463562, "lr": 1.5253893144606404e-05, "elapsed_s": 43.23385238647461, "timestamp": "2026-11-08T21:02:36.355703+00:00"}
+{"event": "train", "step": 23, "loss": 0.5497067160904408, "reward_margin": 0.3873714548535645, "preference_accuracy": 0.6875, "grad_norm": 3.2390778064727783, "lr": 1.4866943596362404e-05, "elapsed_s": 45.30689978599548, "timestamp": "2026-11-08T21:02:38.428750+00:00"}
+1794171760
+
+
+AGENT
+DPO is learning a positive average preference margin for correct answers. For the next iteration, I’ll broaden the reward-filtered data using the remaining training questions, since that approach has produced the strongest score so far.
+
+COMMAND
+/bin/bash -lc ". code/env.sh
+python - <<'PY'
+p='code/generate.py';s=open(p).read();s=s.replace('import json,random,re,time','import json,random,re,time,argparse')
+s=s.replace('seed=20261108',\"p=argparse.ArgumentParser();p.add_argument('--model',default='./models/base');p.add_argument('--offset',type=int,default=0);p.add_argument('--count',type=int,default=2048);p.add_argument('--n',type=int,default=2);p.add_argument('--name',default='rollout');a=p.parse_args()\\nseed=20261108\",1)
+s=s.replace(\"model='./models/base',temperature=0.7,top_p=.95,n=2,max_tokens=512,prompts=2048\",\"model=a.model,temperature=0.7,top_p=.95,n=a.n,max_tokens=512,prompts=a.count,offset=a.offset\")
+s=s.replace(\"'logs/rollout_settings.json'\",\"f'logs/{a.name}_settings.json'\")
+s=s.replace(\"['train'][:settings['prompts']]\",\"['train'][a.offset:a.offset+a.count]\")
+s=s.replace(\"LLM(model='./models/base'\",\"LLM(model=a.model\")
+s=s.replace('SamplingParams(n=2','SamplingParams(n=a.n')
+s=s.replace(\"open('logs/rollouts.jsonl'\",\"open(f'logs/{a.name}s.jsonl'\").replace(\"open('logs/rollout_metrics.jsonl'\",\"open(f'logs/{a.name}_metrics.jsonl'\")
+s+='\\nout.close();met.close()\\nllm.llm_engine.engine_core.shutdown()\\n'
+open(p,'w').write(s)
+p='code/reward.py';s=open(p).read().replace('import json,re','import json,re,argparse');s=s.replace(\"rows=[json.loads(l)\",\"p=argparse.ArgumentParser();p.add_argument('--input',default='logs/rollouts.jsonl');p.add_argument('--output',default='logs/rewarded.jsonl');a=p.parse_args()\\nrows=[json.loads(l)\",1);s=s.replace(\"open('logs/rewarded.jsonl','w')\",\"open(a.output,'w')\").replace(\"open('logs/rollouts.jsonl')\",\"open(a.input)\").replace(\"Path('logs/reward_metrics.json')\",\"Path(a.output+'.metrics.json')\")
+s=s.replace('基础模型按seed=20261108对2048个训练问题各采样2条解答','根据已记录采样配置按seed=20261108生成训练问题解答').replace('原始轨迹和重算奖励分别保留','原始轨迹和重算奖励分别保留，输入{a.input}，输出{a.output}')
+open(p,'w').write(s)
+PY
+python -m py_compile code/generate.py code/reward.py
+tail -n 2 logs/v4.log"
+EXIT 0
+{"event": "train", "step": 38, "loss": 0.49291177093982697, "reward_margin": 0.9044453473761678, "preference_accuracy": 0.75, "grad_norm": 3.645167350769043, "lr": 8.746106855393602e-06, "elapsed_s": 74.46542763710022, "timestamp": "2026-11-08T21:03:07.587279+00:00"}
+{"event": "train", "step": 39, "loss": 0.5662827454507351, "reward_margin": 0.44179622642695904, "preference_accuracy": 0.6875, "grad_norm": 3.829514503479004, "lr": 8.368076002083628e-06, "elapsed_s": 76.6356475353241, "timestamp": "2026-11-08T21:03:09.757499+00:00"}
+
+
+COMMAND
+/bin/bash -lc 'nvidia-smi --query-gpu=memory.used --format=csv,noheader
+. code/env.sh
+python code/train.py --dpo --name v4 --steps 60 --lr 0.00002 --beta 0.1 > logs/v4.log 2>&1'
+EXIT 0
+175 MiB
+
+
+COMMAND
+/bin/bash -lc 'tail -n 3 logs/v4.log
+nvidia-smi --query-gpu=memory.used --format=csv,noheader'
+EXIT 0
+{"event": "train", "step": 59, "loss": 0.4859030917286873, "reward_margin": 0.5326987411826849, "preference_accuracy": 1.0, "grad_norm": 3.2353055477142334, "lr": 4.01096372196341e-06, "elapsed_s": 116.31002044677734, "timestamp": "2026-11-08T21:03:49.431871+00:00"}
+{"event": "train", "step": 60, "loss": 0.40070875734090805, "reward_margin": 1.0055644400417805, "preference_accuracy": 0.9375, "grad_norm": 3.193997859954834, "lr": 4.000000000000001e-06, "elapsed_s": 118.26967239379883, "timestamp": "2026-11-08T21:03:51.391523+00:00"}
+{"event": "saved", "step": 60, "timestamp": "2026-11-08T21:03:53.107937+00:00"}
+175 MiB
+
+
+AGENT
+DPO finished and is submitted. Its final batch favored correct samples in 93.75% of pairs, but that is a training metric; the full-test score is what matters. The 68.23% checkpoint remains saved.
+
+COMMAND
+/bin/bash -lc 'cat logs/v4_submit.log
+head -n 2 logs/v4.log
+date -u +%s'
+EXIT 0
+{"event": "data", "pairs": 354, "timestamp": "2026-11-08T21:01:39.925042+00:00"}
+{"event": "reference_cached", "pairs": 354, "timestamp": "2026-11-08T21:01:53.118441+00:00"}
+1794171913
+
+
+AGENT
+DPO used 354 valid preference pairs. The next reward-filtered run will cover the remaining 5,169 training questions, giving it broader coverage than the first run’s 2,048 questions.
+
+COMMAND
+/bin/bash -lc 'cat logs/v4_submit.log
+date -u +%s'
+EXIT 0
+1794171980
+
+
+AGENT
+DPO evaluation is still pending. The submission wrapper is ready to record its full response, and about 28 minutes remain for broader sampling, training, and evaluation.
+
+COMMAND
+/bin/bash -lc 'cat logs/v4_submit.log
+date -u +%s'
+EXIT 0
+1794172049
+
+
+AGENT
+The results so far are 57.85% for full-strength SFT, 65.81% for its 20% update, and 68.23% for reward-filtered training. DPO is still being evaluated. Those results make broader reward-filtered training the strongest next direction.
+
+COMMAND
+/bin/bash -lc '. code/env.sh
+python code/submit.py v4 > logs/v4_submit.log 2>&1'
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v4_submit.log
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader
+date -u +%s'
+EXIT 0
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":232.51,"improvement":4.32,"model_path":"./output/v3r","score":68.23,"submission_id":3,"timestamp":"2026-11-08T21:00:36.343210"},"elapsed_seconds":220.04,"improvement":2.35,"model_path":"./output/v4","score":66.26,"submission_id":4,"timestamp":"2026-11-08T21:07:50.909167","total_submissions":4}
+
+175 MiB, 0 %
+1794172111
+
+
+AGENT
+DPO scored **66.26%**—above baseline, but below the 68.23% best. I’m now using that best model to sample solutions for the remaining training questions, then continuing reward-filtered training on verified correct outputs.
+
+COMMAND
+/bin/bash -lc 'tail -n 3 logs/generate2.log
+date -u +%s'
+EXIT 0
+{"timestamp": "2026-11-08T21:09:28.783459+00:00", "step": 8, "generated": 1024, "reward": 0.8310546875, "elapsed_s": 38.50752806663513, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+{"timestamp": "2026-11-08T21:09:33.630836+00:00", "step": 9, "generated": 1152, "reward": 0.8324652777777778, "elapsed_s": 43.354904890060425, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+{"timestamp": "2026-11-08T21:09:38.436807+00:00", "step": 10, "generated": 1280, "reward": 0.83046875, "elapsed_s": 48.16087555885315, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+1794172180
+
+
+AGENT
+The improved model is producing correct `####` answers on about 83% of the newly sampled training questions so far. That is a sampling diagnostic, not a test score. Generation is progressing quickly.
+
+COMMAND
+/bin/bash -lc 'tail -n 2 logs/generate2.log
+date -u +%s'
+EXIT 0
+{"timestamp": "2026-11-08T21:10:36.555937+00:00", "step": 22, "generated": 2816, "reward": 0.8355823863636364, "elapsed_s": 106.28000569343567, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+{"timestamp": "2026-11-08T21:10:41.362498+00:00", "step": 23, "generated": 2944, "reward": 0.8362771739130435, "elapsed_s": 111.08656716346741, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+1794172243
+
+
+AGENT
+More than half of the additional questions have been sampled, with the strict correct-answer rate holding near 84%. I’ll continue from the best adapter at a low learning rate and retain the current checkpoint in case more training lowers test accuracy.
+
+COMMAND
+/bin/bash -lc 'tail -n 2 logs/generate2.log
+date -u +%s'
+EXIT 0
+{"timestamp": "2026-11-08T21:11:44.653146+00:00", "step": 36, "generated": 4608, "reward": 0.8274739583333334, "elapsed_s": 174.377215385437, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+{"timestamp": "2026-11-08T21:11:49.625438+00:00", "step": 37, "generated": 4736, "reward": 0.8274915540540541, "elapsed_s": 179.3495066165924, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+1794172310
+
+
+AGENT
+Sampling has reached 4,736 of 5,169 questions. The continuation will use the new verified solutions, while keeping the held-out split unchanged and excluded from training.
+
+COMMAND
+/bin/bash -lc '. code/env.sh
+python code/generate.py --model ./output/v3r --offset 2048 --count 5169 --n 1 --name rollout2 > logs/generate2.log 2>&1'
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'tail -n 4 logs/generate2.log
+nvidia-smi --query-gpu=memory.used --format=csv,noheader'
+EXIT 0
+{"timestamp": "2026-11-08T21:11:54.446712+00:00", "step": 38, "generated": 4864, "reward": 0.8270970394736842, "elapsed_s": 184.17078065872192, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+{"timestamp": "2026-11-08T21:11:59.432389+00:00", "step": 39, "generated": 4992, "reward": 0.8267227564102564, "elapsed_s": 189.15645813941956, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+{"timestamp": "2026-11-08T21:12:04.374383+00:00", "step": 40, "generated": 5120, "reward": 0.8251953125, "elapsed_s": 194.09845232963562, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+{"timestamp": "2026-11-08T21:12:07.600594+00:00", "step": 41, "generated": 5169, "reward": 0.8254981621203328, "elapsed_s": 197.32466292381287, "settings": {"seed": 20261108, "model": "./output/v3r", "temperature": 0.7, "top_p": 0.95, "n": 1, "max_tokens": 512, "prompts": 5169, "offset": 2048}}
+175 MiB
+
+
+COMMAND
+/bin/bash -lc "cat >> code/env.sh <<'EOF'
+export XDG_CONFIG_HOME=./cache/config
+export VLLM_CONFIG_ROOT=./cache/vllm_config
+export VLLM_CACHE_ROOT=./cache/vllm
+export VLLM_NO_USAGE_STATS=1
+export DO_NOT_TRACK=1
+export CUDA_CACHE_PATH=./cache/cuda
+export NUMBA_CACHE_DIR=./cache/numba
+export MPLCONFIGDIR=./cache/matplotlib
+EOF
+tail -n 2 logs/v5.log"
+EXIT 0
+{"event": "train", "step": 8, "loss": 0.07800590619444847, "lr": 1.0666666666666667e-05, "grad_norm": 0.27643561363220215, "elapsed_s": 7.57069993019104, "timestamp": "2026-11-08T21:12:43.919185+00:00"}
+{"event": "train", "step": 9, "loss": 0.07940828986465931, "lr": 1.2e-05, "grad_norm": 0.24713610112667084, "elapsed_s": 8.60260558128357, "timestamp": "2026-11-08T21:12:44.951091+00:00"}
+
+
+AGENT
+The expanded pass yielded 4,328 verified correct solutions. Continuation training is running at a peak learning rate of 2e-5 for 250 steps. The sampling worker exited cleanly before training started.
+
+COMMAND
+/bin/bash -lc 'tail -n 2 logs/v5.log
+date -u +%s'
+EXIT 0
+{"event": "validation", "step": 75, "loss": 0.8619889207184315, "timestamp": "2026-11-08T21:13:47.075600+00:00"}
+{"event": "train", "step": 76, "loss": 0.06586243864148855, "lr": 1.748416811317037e-05, "grad_norm": 0.28893598914146423, "elapsed_s": 71.6487283706665, "timestamp": "2026-11-08T21:13:47.997213+00:00"}
+1794172428
+
+
+AGENT
+The continuation has passed step 75 without errors. Loss on the original gold-answer style has risen again, so the 68.23% checkpoint remains the fallback. I’ll judge this candidate by its submitted accuracy.
+
+COMMAND
+/bin/bash -lc 'tail -n 2 logs/v5.log
+date -u +%s'
+EXIT 0
+{"event": "train", "step": 142, "loss": 0.07039939239621162, "lr": 1.0986724578669947e-05, "grad_norm": 0.2753826677799225, "elapsed_s": 132.05405044555664, "timestamp": "2026-11-08T21:14:48.402536+00:00"}
+{"event": "train", "step": 143, "loss": 0.07595097087323666, "lr": 1.0880731776259452e-05, "grad_norm": 0.2811345160007477, "elapsed_s": 133.08305740356445, "timestamp": "2026-11-08T21:14:49.431544+00:00"}
+1794172489
+
+
+AGENT
+The continuation is past halfway, at roughly one second per step. About 20 minutes remain, enough to evaluate it and then test a small combination with the DPO update if time allows.
+
+COMMAND
+/bin/bash -lc 'tail -n 2 logs/v5.log
+date -u +%s'
+EXIT 0
+{"event": "train", "step": 213, "loss": 0.07351650111377239, "lr": 4.958858901189401e-06, "grad_norm": 0.3119700253009796, "elapsed_s": 198.4206428527832, "timestamp": "2026-11-08T21:15:54.769128+00:00"}
+{"event": "train", "step": 214, "loss": 0.07803182117640972, "lr": 4.90872045318056e-06, "grad_norm": 0.30472326278686523, "elapsed_s": 199.41321349143982, "timestamp": "2026-11-08T21:15:55.761699+00:00"}
+1794172556
+
+
+AGENT
+The run is at step 214 of 250, with stable training loss and gradient norms. I’ll submit it after saving the full model and confirming the GPU is free.
+
+COMMAND
+/bin/bash -lc '. code/env.sh
+python code/reward.py --input logs/rollout2s.jsonl --output logs/rewarded2.jsonl
+python code/train.py --name v5 --resume output/v3r_adapter --data logs/rewarded2.jsonl --max-length 768 --batch 4 --accum 4 --steps 250 --lr 0.00002 > logs/v5.log 2>&1'
+EXIT 0
+{"timestamp": "2026-11-08T21:12:28.224479+00:00", "seed": 20261108, "counts": {"total": 5169, "correct": 4328, "truncated": 63}, "reward": 0.8372992841942348, "rules": "last hash answer, else boxed number, else last number; reject truncations; canonicalize correct answer"}
+
+
+AGENT
+The expanded reward-filtered model is submitted. It trained on new questions for 250 steps in just under four minutes. While evaluation runs, I’m preparing a variant that adds a modest DPO update to the earlier 68.23% model.
+
+COMMAND
+/bin/bash -lc '. code/env.sh
+python code/merge.py --name v6 --sources v3r v4 --weights 1.0 0.5 > logs/v6.log 2>&1'
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v5_submit.log
+cat logs/v6.log
+date -u +%s
+df -h .'
+EXIT 0
+Saved v6
+1794172684
+Filesystem      Size  Used Avail Use% Mounted on
+tmpfs            24G   19G  6.0G  76% /workspace
+
+
+AGENT
+The combined candidate is saved: the first reward-filtered update plus half of the DPO update. The larger reward-filtered model is still being evaluated. About 17 minutes remain.
+
+COMMAND
+/bin/bash -lc 'cat logs/v5_submit.log
+date -u +%s'
+EXIT 0
+1794172748
+
+
+AGENT
+Evaluation is still pending. Both reward-filtered checkpoints and the combined candidate are preserved, so the next result can guide which model to refine without retraining.
+
+COMMAND
+/bin/bash -lc 'cat logs/v5_submit.log
+date -u +%s'
+EXIT 0
+1794172810
+
+
+AGENT
+About 15 minutes remain. I’m preserving enough time for full-test evaluation rather than starting another sampling round. The prepared weight combinations are the next candidates to test.
+
+COMMAND
+/bin/bash -lc 'tail -n 3 logs/v5.log
+nvidia-smi --query-gpu=memory.used --format=csv,noheader
+. code/env.sh
+python code/submit.py v5 > logs/v5_submit.log 2>&1'
+EXIT 0
+{"event": "train", "step": 250, "loss": 0.0695856548845768, "lr": 4.000000000000001e-06, "grad_norm": 0.28197669982910156, "elapsed_s": 234.34608364105225, "timestamp": "2026-11-08T21:16:30.694569+00:00"}
+{"event": "validation", "step": 250, "loss": 0.9074988253414631, "timestamp": "2026-11-08T21:16:32.501764+00:00"}
+{"event": "saved", "step": 250, "path": "output/v5", "timestamp": "2026-11-08T21:16:34.302786+00:00"}
+175 MiB
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v5_submit.log
+nvidia-smi --query-gpu=memory.used --format=csv,noheader
+date -u +%s'
+EXIT 0
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":232.51,"improvement":4.32,"model_path":"./output/v3r","score":68.23,"submission_id":3,"timestamp":"2026-11-08T21:00:36.343210"},"elapsed_seconds":239.49,"improvement":3.94,"model_path":"./output/v5","score":67.85,"submission_id":5,"timestamp":"2026-11-08T21:20:46.187084","total_submissions":5}
+
+175 MiB
+1794172859
+
+
+AGENT
+The expanded reward-filtered run scored **67.85%**, slightly below the earlier 68.23%. I’ve now submitted the candidate that combines the earlier model with half of the DPO update. The best checkpoint remains unchanged.
+
+COMMAND
+/bin/bash -lc 'cat logs/v6_submit.log
+date -u +%s'
+EXIT 0
+1794172931
+
+
+AGENT
+The combined model is still being evaluated. Since more reward-filtered training slightly reduced accuracy, the next candidate will use a partial continuation update to test whether it retains any benefit from the broader data.
+
+COMMAND
+/bin/bash -lc 'cat logs/v6_submit.log
+date -u +%s'
+EXIT 0
+1794173003
+
+
+AGENT
+About 11 minutes remain. I’ll keep the next changes limited to trained-weight combinations so there is still time to complete full-test evaluation.
+
+COMMAND
+/bin/bash -lc 'cat logs/v6_submit.log
+nvidia-smi --query-gpu=memory.used --format=csv,noheader
+date -u +%s'
+EXIT 0
+44654 MiB
+1794173069
+
+
+AGENT
+The grader is still holding the GPU for the combined candidate. The next variant is ready to build once the score returns; the best fully evaluated result remains 68.23%.
+
+COMMAND
+/bin/bash -lc '. code/env.sh
+python code/submit.py v6 > logs/v6_submit.log 2>&1'
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v6_submit.log
+date -u +%s'
+EXIT 0
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":245.73,"improvement":5.01,"model_path":"./output/v6","score":68.92,"submission_id":6,"timestamp":"2026-11-08T21:25:08.142896"},"elapsed_seconds":245.73,"improvement":5.01,"model_path":"./output/v6","score":68.92,"submission_id":6,"timestamp":"2026-11-08T21:25:08.142896","total_submissions":6}
+
+1794173108
+
+
+AGENT
+The combined model scored **68.92%**, a **5.01-point improvement** over baseline and the new best. I’m testing one more variant that adds half of the broader-data continuation update while retaining the same DPO contribution.
+
+COMMAND
+/bin/bash -lc ". code/env.sh
+python - <<'PY'
+import shutil
+from datetime import datetime,timezone
+shutil.rmtree('output/v1')
+with open('summary.md','a') as f:f.write(f'\\n## Storage maintenance ({datetime.now(timezone.utc):%Y-%m-%d %H:%M})\\n- 删除非最佳v1的合并完整模型以保留后续候选空间；保留output/v1_adapter、全部训练日志及设置，可从只读基础模型重建。最佳v6及其它候选保持完整。\\n')
+PY
+python code/merge.py --name v8 --sources v3r v4 v1 --weights 1.0 0.5 0.1 > logs/v8.log 2>&1"
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v7.log logs/v7_submit.log logs/v8.log
+date -u +%s
+df -h .'
+EXIT 0
+Saved v7
+Saved v8
+1794173191
+Filesystem      Size  Used Avail Use% Mounted on
+tmpfs            24G   21G  3.1G  88% /workspace
+
+
+AGENT
+The partial-continuation variant is evaluating. I also prepared a final candidate that adds a small SFT update to the current best. I’ll submit it only if enough time remains for a full evaluation. To make space, I removed the unsuccessful first merged model while retaining its adapter and logs.
+
+COMMAND
+/bin/bash -lc 'cat logs/v7_submit.log logs/final_submission_scheduler.log
+date -u +%s'
+EXIT 0
+1794173269
+
+
+AGENT
+The seventh evaluation is still running. The final candidate is saved, and its submission is gated on having at least 280 seconds remaining when this evaluation returns.
+
+COMMAND
+/bin/bash -lc "cat > code/report.py <<'PY'
+import json,time
+from pathlib import Path
+from datetime import datetime,timezone
+results=[]
+for p in Path('logs').glob('*_submission.json'):
+ try:r=json.loads(p.read_text())
+ except:continue
+ if 'score' in r:results.append(r)
+results.sort(key=lambda r:r['submission_id']);best=max(results,key=lambda r:r['score'])
+metrics={}
+for p in Path('logs').glob('*_metrics.jsonl'):
+ rows=[json.loads(l) for l in p.read_text().splitlines() if l.strip()]
+ tr=[r for r in rows if r.get('event')=='train']
+ if tr:metrics[p.name]={'steps':len(tr),'first_timestamp':tr[0]['timestamp'],'last_timestamp':tr[-1]['timestamp'],'first_loss':tr[0]['loss'],'last_loss':tr[-1]['loss']}
+meta=json.loads(Path('run_meta.json').read_text())
+report={'timestamp':datetime.now(timezone.utc).isoformat(),'seed':20261108,'best_model_path':best['model_path'],'best_score':best['score'],'baseline_score':best['baseline_score'],'improvement':best['improvement'],'best_submission_id':best['submission_id'],'completed_submissions':len(results),'remaining_s':meta['start_time']+meta['timeout_s']-time.time(),'submissions':results,'training_trajectory_summary':metrics}
+assert Path(best['model_path'],'model.safetensors').is_file()
+Path('best_model.json').write_text(json.dumps(report,indent=2))
+with open('summary.md','a') as f:
+ f.write(f'\\n## Final result ({datetime.now(timezone.utc):%Y-%m-%d %H:%M})\\n- **状态**: ✅ 成功\\n- **Score**: {best[\"score\"]} | Improvement: {best[\"improvement\"]} | Best: {best[\"score\"]}\\n- **最佳完整模型**: "'`{best["model_path"]}`'"\\n- **设置**: seed=20261108；训练与切分设置见logs/*_settings.json，逐步时间戳/loss/reward见logs/*_metrics.jsonl；所有提交原文保留于logs/*_submission.json。\\n- **做了什么**: 完成{len(results)}次完整测试集提交，比较SFT、弱化SFT、正确轨迹筛选训练、DPO、继续训练和权重组合；保留最佳完整模型，详细分数和轨迹汇总见best_model.json。\\n- **为什么**: 用官方准确率反馈调整方向；模型自身正确轨迹优于直接模仿标准解答，偏好训练的部分增量进一步提升最佳结果。\\n- **问题/进步**: 一次已记录OOM因采样worker延迟退出而发生，清理后成功重试；后续采样显式关闭worker。\\n- **下一步建议**: 本轮预算内停止新实验，以最佳完整模型作为任务结果。\\n')
+print(json.dumps({k:v for k,v in report.items() if k not in ['submissions','training_trajectory_summary']},indent=2))
+PY
+. code/env.sh
+python -m py_compile code/report.py"
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v7_submit.log logs/final_submission_scheduler.log
+date -u +%s'
+EXIT 0
+1794173346
+
+
+AGENT
+There are about five minutes left. The seventh evaluation is still pending, and the final submission remains conditional on the time reserve. I’ve prepared a manifest that will record the best model, all submission scores, and the training-log locations.
+
+COMMAND
+/bin/bash -lc 'cat logs/v7_submit.log logs/final_submission_scheduler.log
+date -u +%s'
+EXIT 0
+1794173383
+
+
+COMMAND
+/bin/bash -lc '. code/env.sh
+python code/merge.py --name v7 --sources v3r v5 v4 --weights 0.5 0.5 0.5 > logs/v7.log 2>&1
+python code/submit.py v7 > logs/v7_submit.log 2>&1'
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v7_submit.log logs/final_submission_scheduler.log
+date -u +%s'
+EXIT 0
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":263.79,"improvement":5.46,"model_path":"./output/v7","score":69.37,"submission_id":7,"timestamp":"2026-11-08T21:29:48.881073"},"elapsed_seconds":263.79,"improvement":5.46,"model_path":"./output/v7","score":69.37,"submission_id":7,"timestamp":"2026-11-08T21:29:48.881073","total_submissions":7}
+
+{"timestamp": "2026-11-08T21:29:49.393329+00:00", "remaining_s": 297.60667657852173, "minimum_evaluation_reserve_s": 280, "candidate": "v8", "submit": true}
+1794173419
+
+
+AGENT
+The seventh model scored **69.37%**, a **5.46-point improvement** over baseline and the new best. The final candidate started evaluation with 298 seconds remaining, meeting the time reserve. No further training is planned.
+
+COMMAND
+/bin/bash -lc 'cat logs/v8_submit.log
+date -u +%s'
+EXIT 0
+1794173498
+
+
+AGENT
+The final evaluation is still running. The best fully evaluated model remains `output/v7` at 69.37%; I’ll finish the manifest once the last result returns.
+
+COMMAND
+/bin/bash -lc 'cat logs/v8_submit.log
+date -u +%s
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader'
+EXIT 0
+1794173562
+44648 MiB, 89 %
+
+
+AGENT
+About two minutes remain, and the grader is still using the GPU. No training or generation processes are running. The 69.37% checkpoint is preserved regardless of the final candidate’s result.
+
+COMMAND
+/bin/bash -lc 'cat logs/v8_submit.log
+date -u +%s'
+EXIT 0
+1794173618
+
+
+AGENT
+The final evaluation is nearing the deadline. Seven full evaluations have already completed successfully, with a best score of 69.37%. I’m waiting for the last response before closing the audit record.
+
+COMMAND
+/bin/bash -lc 'cat logs/v8_submit.log
+date -u +%s'
+EXIT 0
+1794173645
+
+
+COMMAND
+/bin/bash -lc 'nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader
+cat logs/final_submission_decision.json'
+EXIT 0
+44648 MiB, 90 %
+{
+  "timestamp": "2026-11-08T21:29:49.393329+00:00",
+  "remaining_s": 297.60667657852173,
+  "minimum_evaluation_reserve_s": 280,
+  "candidate": "v8",
+  "submit": true
+}
+
+COMMAND
+/bin/bash -lc "cat > code/last_submit.py <<'PY'
+import os,json,time,subprocess
+from pathlib import Path
+from datetime import datetime,timezone
+while not Path('logs/v7_submission.json').exists():time.sleep(1)
+meta=json.loads(Path('run_meta.json').read_text());remaining=meta['start_time']+meta['timeout_s']-time.time()
+decision={'timestamp':datetime.now(timezone.utc).isoformat(),'remaining_s':remaining,'minimum_evaluation_reserve_s':280,'candidate':'v8','submit':remaining>=280}
+Path('logs/final_submission_decision.json').write_text(json.dumps(decision,indent=2));print(json.dumps(decision),flush=True)
+if decision['submit']:
+ with open('logs/v8_submit.log','w') as f:subprocess.run(['python','code/submit.py','v8'],stdout=f,stderr=subprocess.STDOUT,env=os.environ.copy(),check=True)
+PY
+. code/env.sh
+python code/last_submit.py > logs/final_submission_scheduler.log 2>&1"
+EXIT 0
+
+
+COMMAND
+/bin/bash -lc 'cat logs/v8_submit.log
+date -u +%s'
+EXIT 0
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":263.79,"improvement":5.46,"model_path":"./output/v7","score":69.37,"submission_id":7,"timestamp":"2026-11-08T21:29:48.881073"},"elapsed_seconds":270.03,"improvement":-1.14,"model_path":"./output/v8","score":62.77,"submission_id":8,"timestamp":"2026-11-08T21:34:19.543767","total_submissions":8}
+
+1794173670
+
+
+AGENT
+The final candidate scored 62.77%, so `output/v7` remains best at **69.37%**. All eight full evaluations finished within the budget. I’m writing the final manifest and summary now.
+
+COMMAND
+/bin/bash -lc '. code/env.sh
+python code/report.py
+nvidia-smi --query-gpu=memory.used --format=csv,noheader'
+EXIT 0
+{
+  "timestamp": "2026-11-08T21:34:34.756731+00:00",
+  "seed": 20261108,
+  "best_model_path": "./output/v7",
+  "best_score": 69.37,
+  "baseline_score": 63.91,
+  "improvement": 5.46,
+  "best_submission_id": 7,
+  "completed_submissions": 8,
+  "remaining_s": 12.24326229095459
+}
+168 MiB
+
+
+AGENT
+Completed eight full submissions within budget.
+
+- **Best score:** 69.37%, up **5.46 points** from baseline.
+- **Best model:** `output/v7`
+- **Seed:** 20261108
+- GPU released.
+
+Audit records: [summary.md](/workspace/summary.md), [best_model.json](/workspace/best_model.json). Training code, metrics, datasets, and checkpoints remain in the workspace.

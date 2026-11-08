@@ -35,12 +35,14 @@ for result in results:
     axes[2].bar(
         label,
         usage.get("uncached_input_tokens", 0),
+        color="tab:blue",
         label="Uncached input" if label == results[0]["mode"] else None,
     )
     axes[2].bar(
         label,
         usage.get("output_tokens", 0),
         bottom=usage.get("uncached_input_tokens", 0),
+        color="tab:orange",
         label="Output" if label == results[0]["mode"] else None,
     )
     if (run / "fault-events.jsonl").exists():

@@ -1,0 +1,20 @@
+{
+  "training_type": "RFT",
+  "seed": 20261108,
+  "split_seed": 20261108,
+  "lr": 3e-05,
+  "steps": 150,
+  "batch_size": 4,
+  "gradient_accumulation": 4,
+  "effective_batch": 16,
+  "max_length": 768,
+  "lora_rank": 32,
+  "lora_alpha": 64,
+  "lora_dropout": 0.05,
+  "weight_decay": 0.01,
+  "warmup_steps": 15,
+  "resume": null,
+  "data": "logs/rewarded.jsonl",
+  "answer_only_loss": true,
+  "remove_calculator_annotations": true
+}

@@ -1,0 +1,20 @@
+{
+  "training_type": "RFT/SFT",
+  "seed": 20261108,
+  "lr": 1e-05,
+  "max_steps": 125,
+  "batch_size": 8,
+  "gradient_accumulation": 4,
+  "effective_batch_size": 32,
+  "max_length": 512,
+  "lora_rank": 32,
+  "lora_alpha": 64,
+  "lora_dropout": 0.0,
+  "weight_decay": 0.01,
+  "warmup_steps": 15,
+  "validation_size": 128,
+  "seconds": 450,
+  "resume": "output/v4-adapter",
+  "run": "v5",
+  "dataset": "cache/datasets/rft_combined.jsonl"
+}

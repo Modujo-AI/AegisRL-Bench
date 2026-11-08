@@ -1,0 +1,1 @@
+{"baseline_score":63.91,"best":{"baseline_score":63.91,"elapsed_seconds":232.51,"improvement":4.32,"model_path":"./output/v3r","score":68.23,"submission_id":3,"timestamp":"2026-11-08T21:00:36.343210"},"elapsed_seconds":239.49,"improvement":3.94,"model_path":"./output/v5","score":67.85,"submission_id":5,"timestamp":"2026-11-08T21:20:46.187084","total_submissions":5}

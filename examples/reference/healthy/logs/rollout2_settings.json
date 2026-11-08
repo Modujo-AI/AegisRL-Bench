@@ -1,0 +1,10 @@
+{
+  "seed": 20261108,
+  "model": "./output/v3r",
+  "temperature": 0.7,
+  "top_p": 0.95,
+  "n": 1,
+  "max_tokens": 512,
+  "prompts": 5169,
+  "offset": 2048
+}

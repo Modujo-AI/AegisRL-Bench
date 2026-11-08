@@ -1,0 +1,296 @@
+[
+  {
+    "path": "/models/001/model",
+    "sampled_parameters": [
+      {
+        "name": "model.layers.0.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 1510519,
+        "rms_delta": 0.00018523147446103394,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.0.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 318061,
+        "rms_delta": 0.00017485982971265912,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 1737678,
+        "rms_delta": 0.0001795979478629306,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 282614,
+        "rms_delta": 0.0001697797270026058,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 1778719,
+        "rms_delta": 0.0001793998817447573,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 278373,
+        "rms_delta": 0.00018171954434365034,
+        "all_finite": true
+      }
+    ],
+    "adapter_config_present": false,
+    "sampled_weights_differ_from_base": true
+  },
+  {
+    "path": "/models/002/model",
+    "sampled_parameters": [
+      {
+        "name": "model.layers.0.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 623552,
+        "rms_delta": 3.559952892828733e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.0.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 178677,
+        "rms_delta": 4.39372452092357e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 771776,
+        "rms_delta": 3.741730688489042e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 139138,
+        "rms_delta": 4.232177525409497e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 823327,
+        "rms_delta": 3.844084858428687e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 121903,
+        "rms_delta": 3.9076723624020815e-05,
+        "all_finite": true
+      }
+    ],
+    "adapter_config_present": false,
+    "sampled_weights_differ_from_base": true
+  },
+  {
+    "path": "/models/003/model",
+    "sampled_parameters": [
+      {
+        "name": "model.layers.0.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 665306,
+        "rms_delta": 4.170591273577884e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.0.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 194701,
+        "rms_delta": 5.218614751356654e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 859251,
+        "rms_delta": 4.561170135275461e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 145612,
+        "rms_delta": 4.6538083552150056e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 968599,
+        "rms_delta": 5.5246855481527746e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 137027,
+        "rms_delta": 4.845106741413474e-05,
+        "all_finite": true
+      }
+    ],
+    "adapter_config_present": false,
+    "sampled_weights_differ_from_base": true
+  },
+  {
+    "path": "/models/004/model",
+    "sampled_parameters": [
+      {
+        "name": "model.layers.0.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 723719,
+        "rms_delta": 4.711672954726964e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.0.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 204404,
+        "rms_delta": 5.743626752519049e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 913819,
+        "rms_delta": 5.038746166974306e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 155566,
+        "rms_delta": 5.2234110626159236e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 1033005,
+        "rms_delta": 6.104540807427838e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 149459,
+        "rms_delta": 5.600570875685662e-05,
+        "all_finite": true
+      }
+    ],
+    "adapter_config_present": false,
+    "sampled_weights_differ_from_base": true
+  },
+  {
+    "path": "/models/005/model",
+    "sampled_parameters": [
+      {
+        "name": "model.layers.0.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 666352,
+        "rms_delta": 4.1897255869116634e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.0.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 194893,
+        "rms_delta": 5.2446237532421947e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 859955,
+        "rms_delta": 4.575720231514424e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 145842,
+        "rms_delta": 4.674592855735682e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 969380,
+        "rms_delta": 5.548818444367498e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 137165,
+        "rms_delta": 4.8717080062488094e-05,
+        "all_finite": true
+      }
+    ],
+    "adapter_config_present": false,
+    "sampled_weights_differ_from_base": true
+  },
+  {
+    "path": "/models/006/model",
+    "sampled_parameters": [
+      {
+        "name": "model.layers.0.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 669855,
+        "rms_delta": 4.296163024264388e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.0.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 195780,
+        "rms_delta": 5.4211024689720944e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 863378,
+        "rms_delta": 4.688202534453012e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.10.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 146564,
+        "rms_delta": 4.794322740053758e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.q_proj.weight",
+        "elements": 2359296,
+        "changed_elements": 971900,
+        "rms_delta": 5.703398346668109e-05,
+        "all_finite": true
+      },
+      {
+        "name": "model.layers.20.self_attn.v_proj.weight",
+        "elements": 393216,
+        "changed_elements": 137657,
+        "rms_delta": 4.977455682819709e-05,
+        "all_finite": true
+      }
+    ],
+    "adapter_config_present": false,
+    "sampled_weights_differ_from_base": true
+  }
+]

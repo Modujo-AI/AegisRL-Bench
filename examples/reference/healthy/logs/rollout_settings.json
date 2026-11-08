@@ -1,0 +1,9 @@
+{
+  "seed": 20261108,
+  "model": "./models/base",
+  "temperature": 0.7,
+  "top_p": 0.95,
+  "n": 2,
+  "max_tokens": 512,
+  "prompts": 2048
+}

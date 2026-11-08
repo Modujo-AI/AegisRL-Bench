@@ -1,0 +1,10 @@
+{
+  "seed": 20261108,
+  "model": "./output/v4",
+  "questions": 1536,
+  "n": 2,
+  "temperature": 0.8,
+  "top_p": 0.95,
+  "max_tokens": 512,
+  "max_model_len": 1024
+}

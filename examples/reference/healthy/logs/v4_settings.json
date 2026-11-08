@@ -1,0 +1,18 @@
+{
+  "training_type": "DPO",
+  "seed": 20261108,
+  "split_seed": 20261108,
+  "steps": 60,
+  "lr": 2e-05,
+  "beta": 0.1,
+  "batch_size": 2,
+  "gradient_accumulation": 8,
+  "effective_pair_batch": 16,
+  "max_length": 768,
+  "lora_rank": 32,
+  "lora_alpha": 64,
+  "lora_dropout": 0.0,
+  "weight_decay": 0.01,
+  "reference": "frozen base model",
+  "data": "logs/rewarded.jsonl"
+}

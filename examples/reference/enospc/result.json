@@ -1,0 +1,225 @@
+{
+  "run": "afb-95964688e7",
+  "mode": "enospc",
+  "model": "gpt-6-astra",
+  "budget_s": 3600,
+  "agent_seconds": 3493.283485889435,
+  "agent_exit_code": 0,
+  "timed_out": null,
+  "commands": 90,
+  "usage_total": {
+    "input_tokens": 10563377,
+    "cached_input_tokens": 10464896,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 33590,
+    "reasoning_output_tokens": 11694,
+    "uncached_input_tokens": 98481
+  },
+  "best_score": 73.39,
+  "baseline_accuracy_percent": 63.91,
+  "time_to_first_valid_submission_seconds": 841.4955749511719,
+  "submissions": [
+    {
+      "submission_id": 1,
+      "timestamp": "2026-11-08T21:56:49.495575",
+      "model_path": "./output/v2",
+      "score": 59.74,
+      "baseline_score": 63.91,
+      "improvement": -4.17,
+      "elapsed_seconds": 274.57
+    },
+    {
+      "submission_id": 2,
+      "timestamp": "2026-11-08T22:03:10.065372",
+      "model_path": "./output/v3",
+      "score": 65.58,
+      "baseline_score": 63.91,
+      "improvement": 1.67,
+      "elapsed_seconds": 218.3
+    },
+    {
+      "submission_id": 3,
+      "timestamp": "2026-11-08T22:15:34.165838",
+      "model_path": "./output/v4",
+      "score": 72.18,
+      "baseline_score": 63.91,
+      "improvement": 8.27,
+      "elapsed_seconds": 230.84
+    },
+    {
+      "submission_id": 4,
+      "timestamp": "2026-11-08T22:30:04.719892",
+      "model_path": "./output/v5",
+      "score": 70.81,
+      "baseline_score": 63.91,
+      "improvement": 6.9,
+      "elapsed_seconds": 232.24
+    },
+    {
+      "submission_id": 5,
+      "timestamp": "2026-11-08T22:35:18.885791",
+      "model_path": "./output/v6blend",
+      "score": 71.95,
+      "baseline_score": 63.91,
+      "improvement": 8.04,
+      "elapsed_seconds": 220.69
+    },
+    {
+      "submission_id": 6,
+      "timestamp": "2026-11-08T22:39:20.313003",
+      "model_path": "./output/v7extend",
+      "score": 73.39,
+      "baseline_score": 63.91,
+      "improvement": 9.48,
+      "elapsed_seconds": 230.73
+    }
+  ],
+  "eligible_submissions": [
+    {
+      "submission_id": 1,
+      "timestamp": "2026-11-08T21:56:49.495575",
+      "model_path": "./output/v2",
+      "score": 59.74,
+      "baseline_score": 63.91,
+      "improvement": -4.17,
+      "elapsed_seconds": 274.57
+    },
+    {
+      "submission_id": 2,
+      "timestamp": "2026-11-08T22:03:10.065372",
+      "model_path": "./output/v3",
+      "score": 65.58,
+      "baseline_score": 63.91,
+      "improvement": 1.67,
+      "elapsed_seconds": 218.3
+    },
+    {
+      "submission_id": 3,
+      "timestamp": "2026-11-08T22:15:34.165838",
+      "model_path": "./output/v4",
+      "score": 72.18,
+      "baseline_score": 63.91,
+      "improvement": 8.27,
+      "elapsed_seconds": 230.84
+    },
+    {
+      "submission_id": 4,
+      "timestamp": "2026-11-08T22:30:04.719892",
+      "model_path": "./output/v5",
+      "score": 70.81,
+      "baseline_score": 63.91,
+      "improvement": 6.9,
+      "elapsed_seconds": 232.24
+    },
+    {
+      "submission_id": 5,
+      "timestamp": "2026-11-08T22:35:18.885791",
+      "model_path": "./output/v6blend",
+      "score": 71.95,
+      "baseline_score": 63.91,
+      "improvement": 8.04,
+      "elapsed_seconds": 220.69
+    },
+    {
+      "submission_id": 6,
+      "timestamp": "2026-11-08T22:39:20.313003",
+      "model_path": "./output/v7extend",
+      "score": 73.39,
+      "baseline_score": 63.91,
+      "improvement": 9.48,
+      "elapsed_seconds": 230.73
+    }
+  ],
+  "late_submissions": [],
+  "fault_evidence_in_commands": [
+    12,
+    13,
+    33
+  ],
+  "training_trajectory_files": [
+    {
+      "path": "artifacts/logs/generation/metrics.jsonl",
+      "points": 16
+    },
+    {
+      "path": "artifacts/logs/generation/recheck_summary.jsonl",
+      "points": 1
+    },
+    {
+      "path": "artifacts/logs/generation/reward_recheck.jsonl",
+      "points": 4096
+    },
+    {
+      "path": "artifacts/logs/generation/rollouts.jsonl",
+      "points": 4097
+    },
+    {
+      "path": "artifacts/logs/generation2/metrics.jsonl",
+      "points": 24
+    },
+    {
+      "path": "artifacts/logs/generation2/recheck_summary.jsonl",
+      "points": 1
+    },
+    {
+      "path": "artifacts/logs/generation2/reward_recheck.jsonl",
+      "points": 3071
+    },
+    {
+      "path": "artifacts/logs/generation2/rollouts.jsonl",
+      "points": 3071
+    },
+    {
+      "path": "artifacts/logs/v1/metrics.jsonl",
+      "points": 19
+    },
+    {
+      "path": "artifacts/logs/v1retry/metrics.jsonl",
+      "points": 35
+    },
+    {
+      "path": "artifacts/logs/v2/metrics.jsonl",
+      "points": 246
+    },
+    {
+      "path": "artifacts/logs/v2/metrics_recovered.jsonl",
+      "points": 246
+    },
+    {
+      "path": "artifacts/logs/v2/training_steps_audited.jsonl",
+      "points": 225
+    },
+    {
+      "path": "artifacts/logs/v3/metrics.jsonl",
+      "points": 74
+    },
+    {
+      "path": "artifacts/logs/v3/training_steps_audited.jsonl",
+      "points": 75
+    },
+    {
+      "path": "artifacts/logs/v4/metrics.jsonl",
+      "points": 54
+    },
+    {
+      "path": "artifacts/logs/v4/training_steps_audited.jsonl",
+      "points": 55
+    },
+    {
+      "path": "artifacts/logs/v5/metrics.jsonl",
+      "points": 122
+    },
+    {
+      "path": "artifacts/logs/v5/training_steps_audited.jsonl",
+      "points": 125
+    }
+  ],
+  "prediction_counts": [
+    1319,
+    1319,
+    1319,
+    1319,
+    1319,
+    1319
+  ]
+}

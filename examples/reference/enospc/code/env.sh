@@ -1,0 +1,9 @@
+export TMPDIR=./cache/tmp
+export HF_HOME=./cache/huggingface
+export HF_DATASETS_CACHE=./cache/huggingface/datasets
+export TORCH_HOME=./cache/torch
+export TRITON_CACHE_DIR=./cache/triton
+export XDG_CACHE_HOME=./cache
+export WANDB_DISABLED=true
+export TOKENIZERS_PARALLELISM=false
+export PYTHONUNBUFFERED=1

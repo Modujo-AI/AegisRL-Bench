@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-11-08T22:40:16.452286+00:00",
+  "model_path": "./output/v7extend",
+  "score": 73.39,
+  "baseline_score": 63.91,
+  "improvement": 9.48,
+  "submission_id": 6,
+  "total_submissions": 6,
+  "seed": 20261108,
+  "model_sha256": "4edbf37272d5e2a9b2daa5e04c6ba8d36967eba58afbe38c79fbda3341c65114",
+  "model_bytes": 3087467144,
+  "training_settings": "logs/v7extend/settings.json",
+  "training_code": "code/train.py",
+  "export_code": "code/blend.py",
+  "audit": "logs/audit.json",
+  "summary": "summary.md",
+  "provenance": [
+    "v3: SFT 75 steps, lr=2e-5",
+    "v4: 55 RFT/SFT steps, lr=2e-5, 1769 checked trajectories",
+    "v7extend = v3 + 1.25 * (v4 - v3)"
+  ]
+}

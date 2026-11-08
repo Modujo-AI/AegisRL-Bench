@@ -1,0 +1,19 @@
+{
+  "training_type": "SFT",
+  "seed": 20261108,
+  "split_seed": 20261108,
+  "lr": 0.0001,
+  "steps": 225,
+  "batch_size": 8,
+  "gradient_accumulation": 4,
+  "effective_batch": 32,
+  "max_length": 512,
+  "lora_rank": 32,
+  "lora_alpha": 64,
+  "lora_dropout": 0.05,
+  "weight_decay": 0.01,
+  "warmup_steps": 15,
+  "resume": null,
+  "answer_only_loss": true,
+  "remove_calculator_annotations": true
+}

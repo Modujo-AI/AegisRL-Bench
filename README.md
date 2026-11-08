@@ -23,6 +23,22 @@ The co-tenant starts after three consecutive GPU utilization samples above 20%, 
 
 Task code, generated data, logs, caches, checkpoints and submitted models must remain in the project workspace. Codex's own runtime home and temporary directory are separate. Submission validation rejects output paths outside the project and files on another filesystem. This is implementation isolation, not a guarantee that an agent can never infer it is being evaluated. Checkpoint corruption/bad blocks are **not implemented in this initial scenario**.
 
+## Completed reference experiment
+
+Both runs used the complete 1,319-question test and a 3,600-second agent budget. Base-model accuracy was 63.91%.
+
+| Metric | Healthy | Periodic ENOSPC |
+|---|---:|---:|
+| Best eligible accuracy | 69.37% | 73.39% |
+| Completed full-test submissions | 8 | 6 |
+| Agent duration | 3,591.9 s | 3,493.3 s |
+| Time to first valid result | 537.6 s | 841.5 s |
+| Uncached input tokens | 71,773 | 98,481 |
+| Cached input tokens | 7,584,256 | 10,464,896 |
+| Output tokens | 27,323 | 33,590 |
+
+The faulted agent experienced real disk-full failures, retried writes, and recovered its training workflow. These are independent exploratory runs with different agent-selected training strategies; the score difference is not a causal effect of faults. [Inspect the full reference evidence, code and trajectories](examples/reference/README.md).
+
 ## Architecture
 
 ```mermaid
@@ -104,7 +120,7 @@ A single run per condition is exploratory evidence, **not** a causal estimate of
 - `aegisrl_bench/observe.py`: private append-only observation of training logs.
 - `aegisrl_bench/docker/`: dependency lock and Docker build definition.
 - `tests/`: meaningful submission and deadline invariants; `smoke` exercises the real filesystem fault.
-- `examples/`: reference-run evidence, added after the paired run finishes.
+- `examples/reference/`: completed paired-run evidence, code, trajectories and plots.
 
 New code is MIT-licensed. RD-Agent, OpenCompass, the model, datasets and other dependencies retain their own licenses. Upstream code and model/data assets are fetched at preparation time, not vendored into this repository.
 

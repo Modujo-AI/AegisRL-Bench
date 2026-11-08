@@ -1,0 +1,195 @@
+{
+  "timestamp": "2026-11-08T21:34:34.756731+00:00",
+  "seed": 20261108,
+  "best_model_path": "./output/v7",
+  "best_score": 69.37,
+  "baseline_score": 63.91,
+  "improvement": 5.46,
+  "best_submission_id": 7,
+  "completed_submissions": 8,
+  "remaining_s": 12.24326229095459,
+  "submissions": [
+    {
+      "baseline_score": 63.91,
+      "best": {
+        "baseline_score": 63.91,
+        "elapsed_seconds": 171.17,
+        "improvement": -6.06,
+        "model_path": "./output/v1",
+        "score": 57.85,
+        "submission_id": 1,
+        "timestamp": "2026-11-08T20:43:44.615358"
+      },
+      "elapsed_seconds": 171.17,
+      "improvement": -6.06,
+      "model_path": "./output/v1",
+      "score": 57.85,
+      "submission_id": 1,
+      "timestamp": "2026-11-08T20:43:44.615358",
+      "total_submissions": 1
+    },
+    {
+      "baseline_score": 63.91,
+      "best": {
+        "baseline_score": 63.91,
+        "elapsed_seconds": 240.37,
+        "improvement": 1.9,
+        "model_path": "./output/v2",
+        "score": 65.81,
+        "submission_id": 2,
+        "timestamp": "2026-11-08T20:49:19.236500"
+      },
+      "elapsed_seconds": 240.37,
+      "improvement": 1.9,
+      "model_path": "./output/v2",
+      "score": 65.81,
+      "submission_id": 2,
+      "timestamp": "2026-11-08T20:49:19.236500",
+      "total_submissions": 2
+    },
+    {
+      "baseline_score": 63.91,
+      "best": {
+        "baseline_score": 63.91,
+        "elapsed_seconds": 232.51,
+        "improvement": 4.32,
+        "model_path": "./output/v3r",
+        "score": 68.23,
+        "submission_id": 3,
+        "timestamp": "2026-11-08T21:00:36.343210"
+      },
+      "elapsed_seconds": 232.51,
+      "improvement": 4.32,
+      "model_path": "./output/v3r",
+      "score": 68.23,
+      "submission_id": 3,
+      "timestamp": "2026-11-08T21:00:36.343210",
+      "total_submissions": 3
+    },
+    {
+      "baseline_score": 63.91,
+      "best": {
+        "baseline_score": 63.91,
+        "elapsed_seconds": 232.51,
+        "improvement": 4.32,
+        "model_path": "./output/v3r",
+        "score": 68.23,
+        "submission_id": 3,
+        "timestamp": "2026-11-08T21:00:36.343210"
+      },
+      "elapsed_seconds": 220.04,
+      "improvement": 2.35,
+      "model_path": "./output/v4",
+      "score": 66.26,
+      "submission_id": 4,
+      "timestamp": "2026-11-08T21:07:50.909167",
+      "total_submissions": 4
+    },
+    {
+      "baseline_score": 63.91,
+      "best": {
+        "baseline_score": 63.91,
+        "elapsed_seconds": 232.51,
+        "improvement": 4.32,
+        "model_path": "./output/v3r",
+        "score": 68.23,
+        "submission_id": 3,
+        "timestamp": "2026-11-08T21:00:36.343210"
+      },
+      "elapsed_seconds": 239.49,
+      "improvement": 3.94,
+      "model_path": "./output/v5",
+      "score": 67.85,
+      "submission_id": 5,
+      "timestamp": "2026-11-08T21:20:46.187084",
+      "total_submissions": 5
+    },
+    {
+      "baseline_score": 63.91,
+      "best": {
+        "baseline_score": 63.91,
+        "elapsed_seconds": 245.73,
+        "improvement": 5.01,
+        "model_path": "./output/v6",
+        "score": 68.92,
+        "submission_id": 6,
+        "timestamp": "2026-11-08T21:25:08.142896"
+      },
+      "elapsed_seconds": 245.73,
+      "improvement": 5.01,
+      "model_path": "./output/v6",
+      "score": 68.92,
+      "submission_id": 6,
+      "timestamp": "2026-11-08T21:25:08.142896",
+      "total_submissions": 6
+    },
+    {
+      "baseline_score": 63.91,
+      "best": {
+        "baseline_score": 63.91,
+        "elapsed_seconds": 263.79,
+        "improvement": 5.46,
+        "model_path": "./output/v7",
+        "score": 69.37,
+        "submission_id": 7,
+        "timestamp": "2026-11-08T21:29:48.881073"
+      },
+      "elapsed_seconds": 263.79,
+      "improvement": 5.46,
+      "model_path": "./output/v7",
+      "score": 69.37,
+      "submission_id": 7,
+      "timestamp": "2026-11-08T21:29:48.881073",
+      "total_submissions": 7
+    },
+    {
+      "baseline_score": 63.91,
+      "best": {
+        "baseline_score": 63.91,
+        "elapsed_seconds": 263.79,
+        "improvement": 5.46,
+        "model_path": "./output/v7",
+        "score": 69.37,
+        "submission_id": 7,
+        "timestamp": "2026-11-08T21:29:48.881073"
+      },
+      "elapsed_seconds": 270.03,
+      "improvement": -1.14,
+      "model_path": "./output/v8",
+      "score": 62.77,
+      "submission_id": 8,
+      "timestamp": "2026-11-08T21:34:19.543767",
+      "total_submissions": 8
+    }
+  ],
+  "training_trajectory_summary": {
+    "v5_metrics.jsonl": {
+      "steps": 250,
+      "first_timestamp": "2026-11-08T21:12:37.349799+00:00",
+      "last_timestamp": "2026-11-08T21:16:30.694569+00:00",
+      "first_loss": 0.0780385211110115,
+      "last_loss": 0.0695856548845768
+    },
+    "v4_metrics.jsonl": {
+      "steps": 60,
+      "first_timestamp": "2026-11-08T21:01:55.247435+00:00",
+      "last_timestamp": "2026-11-08T21:03:51.391523+00:00",
+      "first_loss": 0.689556173980236,
+      "last_loss": 0.40070875734090805
+    },
+    "v3r_metrics.jsonl": {
+      "steps": 150,
+      "first_timestamp": "2026-11-08T20:54:01.321933+00:00",
+      "last_timestamp": "2026-11-08T20:56:24.299975+00:00",
+      "first_loss": 0.20066720992326736,
+      "last_loss": 0.10974784940481186
+    },
+    "v1_metrics.jsonl": {
+      "steps": 225,
+      "first_timestamp": "2026-11-08T20:36:01.468302+00:00",
+      "last_timestamp": "2026-11-08T20:40:40.850569+00:00",
+      "first_loss": 0.5557033717632294,
+      "last_loss": 0.5220575407147408
+    }
+  }
+}

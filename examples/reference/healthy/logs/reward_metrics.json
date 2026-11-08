@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-11-08T20:53:37.513637+00:00",
+  "seed": 20261108,
+  "counts": {
+    "total": 4096,
+    "correct": 3180,
+    "truncated": 67
+  },
+  "reward": 0.7763671875,
+  "rules": "last hash answer, else boxed number, else last number; reject truncations; canonicalize correct answer"
+}

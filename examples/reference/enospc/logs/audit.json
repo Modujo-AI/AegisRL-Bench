@@ -1,0 +1,89 @@
+{
+  "timestamp": "2026-11-08T22:28:03.581983+00:00",
+  "seed": 20261108,
+  "runs": {
+    "v2": {
+      "training_steps_recorded": 225,
+      "first_step": 1,
+      "last_step": 225,
+      "validation_losses": [
+        {
+          "step": 0,
+          "loss": 0.9318571239709854
+        },
+        {
+          "step": 75,
+          "loss": 0.4647985193878412
+        },
+        {
+          "step": 150,
+          "loss": 0.4603799358010292
+        },
+        {
+          "step": 225,
+          "loss": 0.4560112077742815
+        },
+        {
+          "step": 225,
+          "loss": 0.4560112077742815
+        }
+      ]
+    },
+    "v3": {
+      "training_steps_recorded": 75,
+      "first_step": 1,
+      "last_step": 75,
+      "validation_losses": [
+        {
+          "step": 0,
+          "loss": 0.9318571239709854
+        },
+        {
+          "step": 75,
+          "loss": 0.47776133194565773
+        },
+        {
+          "step": 75,
+          "loss": 0.47776133194565773
+        }
+      ]
+    },
+    "v4": {
+      "training_steps_recorded": 55,
+      "first_step": 1,
+      "last_step": 55,
+      "validation_losses": [
+        {
+          "step": 0,
+          "loss": 0.47776133194565773
+        },
+        {
+          "step": 55,
+          "loss": 0.5364106241613626
+        }
+      ]
+    },
+    "v5": {
+      "training_steps_recorded": 125,
+      "first_step": 1,
+      "last_step": 125,
+      "validation_losses": [
+        {
+          "step": 0,
+          "loss": 0.5364106241613626
+        },
+        {
+          "step": 75,
+          "loss": 0.5632969792932272
+        },
+        {
+          "step": 125,
+          "loss": 0.5702214706689119
+        }
+      ]
+    }
+  },
+  "synthetic_examples": 3959,
+  "synthetic_source_questions": 2260,
+  "validation_overlap": 0
+}
