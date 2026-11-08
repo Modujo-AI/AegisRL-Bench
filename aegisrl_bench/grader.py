@@ -82,6 +82,16 @@ upstream.read_run_meta = lambda workspace: original_read(CONTROL / "meta")
 def restrict_control():
     if request.path == "/set_baseline":
         return jsonify(error="Not available to task agents"), 403
+    if request.path == "/submit" and request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        model_path = payload.get("model_path") if isinstance(payload, dict) else None
+        if not isinstance(model_path, str) or not model_path:
+            return jsonify(error="model_path must be a nonempty string"), 400
+        try:
+            server.resolve_model_path(model_path)
+        except ValueError:
+            # The pinned upstream error logger cannot accept exc_info; reject before that branch.
+            return jsonify(error="Model path is outside the workspace"), 400
 
 
 upstream.app.run(host="0.0.0.0", port=5000, threaded=True)

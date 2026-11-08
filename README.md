@@ -107,3 +107,16 @@ A single run per condition is exploratory evidence, **not** a causal estimate of
 - `examples/`: reference-run evidence, added after the paired run finishes.
 
 New code is MIT-licensed. RD-Agent, OpenCompass, the model, datasets and other dependencies retain their own licenses. Upstream code and model/data assets are fetched at preparation time, not vendored into this repository.
+
+### Grading-service contract check
+
+After `build` and `prepare`, this CPU-only check calls the real upstream server routes and confirms that the wrapper blocks baseline changes and path escapes, rejects adapter-only submissions through the upstream evaluator, and records failed evaluations. It does not run or claim a benchmark score.
+
+```bash
+docker run --rm --network none --tmpfs /workspace:size=16m,mode=1777 \
+  -v "$PWD/.state/upstream:/upstream:ro" \
+  -v "$PWD/aegisrl_bench:/harness/aegisrl_bench:ro" \
+  -v "$PWD/tests/grader_contract.py:/test.py:ro" \
+  -e PYTHONPATH=/upstream:/harness -e CUDA_VISIBLE_DEVICES=0 \
+  -w /control aegisrl-bench:local python /test.py
+```

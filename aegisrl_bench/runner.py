@@ -438,6 +438,7 @@ def trial(mode):
         docker("rm", "-f", peer, check=False)
         artifacts = out / "artifacts"
         artifacts.mkdir()
+        meta["archive_errors"] = []
         for item in names:
             if item not in [
                 "other-job",
@@ -447,7 +448,13 @@ def trial(mode):
                 ".runtime",
                 "run_meta.json",
             ]:
-                docker("cp", f"{name}:/workspace/{item}", artifacts / item, check=False)
+                copied = docker(
+                    "cp", f"{name}:/workspace/{item}", artifacts / item, check=False
+                )
+                if copied.returncode:
+                    meta["archive_errors"].append(
+                        {"path": item, "error": copied.stderr[-1000:]}
+                    )
         scores = (
             json.loads((control / "scores.json").read_text())
             if (control / "scores.json").exists()
