@@ -1,0 +1,95 @@
+{
+  "verified_at": "2026-11-08T23:23:56.028947+00:00",
+  "standalone_image": "sha256:3e313a71eec0907ab231b6332f3d8517f433975dbe61b6644bc4c50590213f4a",
+  "cold_image_build_exit_code": 0,
+  "standalone_checks": {
+    "doctor": {
+      "exit_code": 0,
+      "seconds": 3.1512820720672607
+    },
+    "dependencies": {
+      "exit_code": 0,
+      "seconds": 516.3137912750244
+    },
+    "prepare": {
+      "exit_code": 0,
+      "seconds": 19.347525596618652
+    },
+    "smoke": {
+      "exit_code": 0,
+      "seconds": 19.660577297210693
+    },
+    "grader-contract": {
+      "exit_code": 0,
+      "seconds": 19.908101797103882
+    },
+    "baseline": {
+      "exit_code": 0,
+      "seconds": 231.4276626110077
+    }
+  },
+  "smoke": {
+    "real_enospc": true,
+    "peer_contents_hidden": true,
+    "write_recovers": true,
+    "events": [
+      {
+        "time": 1794179928.0819893,
+        "phase": "full",
+        "fill_seconds": 0.008869409561157227,
+        "free_bytes": 0
+      },
+      {
+        "time": 1794179931.0850525,
+        "phase": "released"
+      }
+    ]
+  },
+  "grader_contract": {
+    "health": true,
+    "baseline_protected": true,
+    "path_escape_rejected": true,
+    "adapter_only_rejected_by_upstream": true,
+    "failed_evaluation_recorded": true
+  },
+  "input_manifest": {
+    "base_model": "Qwen/Qwen2.5-1.5B-Instruct",
+    "model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+    "dataset_revision": "740312add88f781978c0658806c59bc2815b9866",
+    "splits": {
+      "train": {
+        "examples": 7473,
+        "sha256": "6043ef64147b59871f4fd3adf669c306fe0a4c27e5a5c4bfb761f3f084895a13",
+        "canonical_sha256": "5208b0c5a0e535bc35cc7fcc6d244fd18d493664891610b8e54b60cf0d936175"
+      },
+      "test": {
+        "examples": 1319,
+        "sha256": "752adc99f23132275139f1f7be57126b08735a55daf0c56859ee6df70abafbac",
+        "canonical_sha256": "ac313242fd25bcce0152c9ce0f1db012a3b52b37b1d70dc0c5650b2ea835f5fd"
+      }
+    }
+  },
+  "standalone_baseline": {
+    "benchmark": "gsm8k",
+    "model_path": "/model",
+    "score": 64.06,
+    "accuracy_summary": {
+      "accuracy": 64.06,
+      "num_subdatasets": 1
+    },
+    "eval_type": "opencompass"
+  },
+  "standalone_baseline_prediction_counts": [
+    1319
+  ],
+  "reference_baseline_accuracy_percent": 63.91,
+  "note": "The standalone baseline scored 64.06%, versus 63.91% for the original pair. The pinned workflow is reproducible; scores are not guaranteed bitwise identical. The original paired-run baseline and results are retained unchanged.",
+  "unit_tests_passed": 6,
+  "reference_checks": {
+    "identical_prompts": true,
+    "all_14_submissions_within_budget": true,
+    "all_prediction_counts_1319": true,
+    "all_sampled_model_weights_changed_and_finite": true,
+    "tracked_files_credential_scan_passed": true
+  }
+}

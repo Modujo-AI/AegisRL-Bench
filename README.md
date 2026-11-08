@@ -39,6 +39,8 @@ Both runs used the complete 1,319-question test and a 3,600-second agent budget.
 
 The faulted agent experienced real disk-full failures, retried writes, and recovered its training workflow. These are independent exploratory runs with different agent-selected training strategies; the score difference is not a causal effect of faults. [Inspect the full reference evidence, code and trajectories](examples/reference/README.md).
 
+The standalone Docker image was built from scratch and passed dependency, data-preparation, real-filesystem fault, and grading-contract checks. A separate full 1,319-question baseline evaluation in that image scored **64.06%**, compared with **63.91%** for the original reference pair. This validation does not replace the reference baseline or assert bitwise-identical scores. Six unit tests also passed. [Validation evidence](examples/reference/validation.json).
+
 ## Architecture
 
 ```mermaid
