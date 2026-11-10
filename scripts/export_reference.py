@@ -58,6 +58,8 @@ def export(source, out):
             for p in e["predictions"]
         ]
         (dest / "result.json").write_text(json.dumps(clean, indent=2))
+        if (run / "control/meta/run_meta.json").exists():
+            checked_copy(run / "control/meta/run_meta.json", dest / "timing.json")
         published.append(clean)
         for name in [
             "agent.jsonl",

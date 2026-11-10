@@ -43,6 +43,16 @@ The standalone Docker image was built from scratch and passed dependency, data-p
 
 ## Architecture
 
+The next-stage design covers combined failures, checkpoint recovery correctness, live user requests, and versioned evaluation cases: [v2 research proposal (Chinese)](docs/research-v2.md). Its [six-scenario catalog](scenarios/research-v2.json) is explicitly **design-only**, not a runnable fault configuration. Current runtime support remains healthy / ENOSPC.
+
+Recompute the descriptive audit of the published reference evidence:
+
+```bash
+python -m aegisrl_bench.resilience --output .state/resilience-audit.json
+```
+
+The reference includes 37 confirmed full-filesystem intervals, approximately 1,317 seconds of exposure. This is not measured training downtime. Detection latency and verified checkpoint recovery remain unknown where independent evidence is absent; see [audit results](examples/reference/resilience-audit.json).
+
 ```mermaid
 flowchart LR
     C[Private controller] --> P[Private co-tenant]

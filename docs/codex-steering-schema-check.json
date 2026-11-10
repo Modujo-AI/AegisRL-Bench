@@ -1,0 +1,12 @@
+{
+  "scope": "local_schema_check_only_not_live_agent_test",
+  "codex_version": "codex-cli 0.167.0",
+  "method": "turn/steer",
+  "required_params": [
+    "expectedTurnId",
+    "input",
+    "threadId"
+  ],
+  "optional_client_message_id": true,
+  "schema_sha256": "092cbdd6159de13ac3cb8acd223766b4450ab3004ad35608ad3c1746ece94c14"
+}

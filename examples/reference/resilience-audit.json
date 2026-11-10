@@ -1,0 +1,287 @@
+{
+  "kind": "descriptive_reference_audit",
+  "conditions": [
+    {
+      "mode": "healthy",
+      "agent_seconds": 3591.870022535324,
+      "best_score": 69.37,
+      "commands": 97,
+      "time_to_first_valid_submission_seconds": 537.6153581142426,
+      "uncached_input_tokens": 71773,
+      "output_tokens": 27323,
+      "valid_submissions": 8,
+      "error_text_command_indices": [],
+      "error_text_note": "Text matches, not counts of failures or diagnosed incidents.",
+      "pressure": null,
+      "time_to_detect_seconds": null,
+      "verified_checkpoint_recovery_seconds": null,
+      "verified_retained_optimizer_updates": null,
+      "unknown_reason": "Reference has no independent checkpoint-resume verifier or timestamped diagnosis annotations. Agent-reported step logs and finite sampled weights do not prove exact state recovery."
+    },
+    {
+      "mode": "enospc",
+      "agent_seconds": 3493.283485889435,
+      "best_score": 73.39,
+      "commands": 90,
+      "time_to_first_valid_submission_seconds": 841.4955749511719,
+      "uncached_input_tokens": 98481,
+      "output_tokens": 33590,
+      "valid_submissions": 6,
+      "error_text_command_indices": [
+        12,
+        13,
+        33
+      ],
+      "error_text_note": "Text matches, not counts of failures or diagnosed incidents.",
+      "pressure": {
+        "full_seconds": 1317.068282365799,
+        "full_fraction": 0.37705934221752047,
+        "intersecting_full_intervals": 37,
+        "right_censored_intervals": 0,
+        "intervals": [
+          {
+            "start": 1794174251.275255,
+            "end": 1794174287.3034472,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794174346.1374915,
+            "end": 1794174382.2217596,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794174441.0043397,
+            "end": 1794174476.9114814,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794174535.6805146,
+            "end": 1794174571.5778253,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794174630.33196,
+            "end": 1794174666.447129,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794174724.6767979,
+            "end": 1794174760.4920826,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794174818.7345552,
+            "end": 1794174854.535991,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794174912.7759035,
+            "end": 1794174948.5914054,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175006.9388638,
+            "end": 1794175042.8354025,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175101.117627,
+            "end": 1794175137.0924847,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175195.0030472,
+            "end": 1794175230.69499,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175288.500725,
+            "end": 1794175324.2015529,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175382.0433955,
+            "end": 1794175417.7411778,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175475.5855649,
+            "end": 1794175511.3165133,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175569.1459868,
+            "end": 1794175604.8740017,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175662.6698167,
+            "end": 1794175698.3914247,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175756.213897,
+            "end": 1794175791.970139,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175849.7915208,
+            "end": 1794175885.5791621,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794175942.9147892,
+            "end": 1794175978.5051904,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176035.8520305,
+            "end": 1794176071.4582622,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176128.3620908,
+            "end": 1794176163.8332705,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176220.7371,
+            "end": 1794176256.1846185,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176313.0746915,
+            "end": 1794176348.5467196,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176405.42498,
+            "end": 1794176440.9152722,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176497.8200808,
+            "end": 1794176533.2531588,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176590.142063,
+            "end": 1794176625.6092606,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176682.49365,
+            "end": 1794176717.956576,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176774.4673798,
+            "end": 1794176809.850389,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176866.321755,
+            "end": 1794176901.699501,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794176958.1619258,
+            "end": 1794176993.5458777,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794177050.0310075,
+            "end": 1794177085.4018035,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794177140.961233,
+            "end": 1794177176.120591,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794177231.678284,
+            "end": 1794177266.8389866,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794177322.3953142,
+            "end": 1794177357.5597951,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794177413.102947,
+            "end": 1794177448.2540429,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794177503.785878,
+            "end": 1794177538.9382827,
+            "left_censored": false,
+            "right_censored": false
+          },
+          {
+            "start": 1794177594.5304773,
+            "end": 1794177629.7036526,
+            "left_censored": false,
+            "right_censored": false
+          }
+        ],
+        "timing_note": "Reference run_meta timestamps have whole-second precision."
+      },
+      "time_to_detect_seconds": null,
+      "verified_checkpoint_recovery_seconds": null,
+      "verified_retained_optimizer_updates": null,
+      "unknown_reason": "Reference has no independent checkpoint-resume verifier or timestamped diagnosis annotations. Agent-reported step logs and finite sampled weights do not prove exact state recovery."
+    }
+  ],
+  "differences_enospc_minus_healthy": {
+    "accuracy_percentage_points": 4.02,
+    "first_valid_result_seconds": 303.8802168369293,
+    "uncached_input_tokens": 26708,
+    "output_tokens": 6267,
+    "valid_submissions": -2
+  },
+  "limitations": [
+    "One independent run per condition; differences are not causal estimates.",
+    "Filesystem full time is exposure, not measured training downtime.",
+    "A released filesystem does not prove the application recovered.",
+    "GPU utilization includes evaluation and does not prove optimizer progress.",
+    "Repeated official-test feedback makes best score adaptively selected."
+  ]
+}

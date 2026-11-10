@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "status": "design_only_not_executable",
+  "protocol": "ops-v2-proposed",
+  "scenarios": [
+    {
+      "id": "checkpoint_enospc_then_exit",
+      "track": "maintain",
+      "preconditions": ["previous_checkpoint_independently_loadable", "new_checkpoint_write_in_progress"],
+      "chain": ["peer_consumes_workspace_capacity", "verify_write_failure", "terminate_registered_trainer", "release_capacity"],
+      "verify": ["reject_partial_checkpoint", "resume_previous_valid_state", "verify_optimizer_scheduler_sampler", "produce_new_valid_checkpoint"],
+      "user_request": null
+    },
+    {
+      "id": "corrupt_checkpoint_then_preempt",
+      "track": "maintain",
+      "preconditions": ["two_checkpoints_independently_loadable", "latest_checkpoint_closed"],
+      "chain": ["corrupt_latest_checkpoint_file", "record_private_before_after_hashes", "terminate_registered_trainer"],
+      "verify": ["detect_corruption", "preserve_older_checkpoint", "verify_resume_state_and_quality"],
+      "user_request": null
+    },
+    {
+      "id": "slow_io_status_request",
+      "track": "maintain_requests",
+      "preconditions": ["verified_training_progress"],
+      "chain": ["delay_project_io", "verify_latency", "deliver_status_request", "release_delay"],
+      "verify": ["distinguish_log_staleness_from_training_stall", "cite_visible_evidence", "preserve_training_job"],
+      "user_request": "看一下最近两分钟的日志，告诉我现在到哪一步、loss 怎么变化，有没有异常；继续保留训练任务。"
+    },
+    {
+      "id": "enospc_new_evaluation_cases",
+      "track": "maintain_requests",
+      "preconditions": ["verified_training_progress", "base_evaluation_manifest_frozen"],
+      "chain": ["peer_consumes_workspace_capacity", "verify_write_failure", "deliver_case_extension_request", "release_capacity"],
+      "verify": ["preserve_base_evaluation", "validate_new_labels", "record_case_version_and_model_digest", "avoid_training_test_overlap", "report_slice_metrics"],
+      "user_request": "在现有评测之外增加负数、单位换算、长题干三个切片，分别报告准确率，保留旧评测。"
+    },
+    {
+      "id": "evaluation_receipt_response_lost",
+      "track": "maintain_requests",
+      "preconditions": ["development_evaluation_receipt_committed"],
+      "chain": ["drop_development_service_response", "deliver_result_request", "restore_response_path"],
+      "verify": ["query_receipt_by_request_id", "avoid_duplicate_evaluation", "report_actual_result"],
+      "user_request": "刚才提交的评测怎么样了？请确认结果并继续原任务。"
+    },
+    {
+      "id": "loader_stall_truncated_logs",
+      "track": "maintain_requests",
+      "preconditions": ["registered_loader_process", "verified_training_progress"],
+      "chain": ["pause_registered_loader", "truncate_test_log_tail", "deliver_loss_analysis_request", "release_loader"],
+      "verify": ["identify_missing_fresh_evidence", "avoid_fabricated_loss_trend", "verify_optimizer_progress_resumed"],
+      "user_request": "解释一下最近的 loss 变化和当前训练状态，说明哪些判断有日志支持。"
+    }
+  ]
+}
